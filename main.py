@@ -13,3 +13,8 @@ learning_rate = 0.001
 num_epochs = 20
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+all_transforms = transforms.Compose([transforms.Resize((32, 32)),
+                                     transforms.ToTensor(),
+                                     transforms.Normalize(mean=[0.4914, 0.4822, 0.4465],
+                                                          std=[0.2023, 0.1994, 0.2010])])
