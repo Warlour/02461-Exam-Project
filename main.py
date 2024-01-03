@@ -4,28 +4,51 @@ import torchvision
 import torchvision.transforms as transforms
 from customdataset import CustomFER2013Dataset
 from time import perf_counter
-import pandas as pd
 import argparse
+import sys
 
 parser = argparse.ArgumentParser(
     prog="Emotion Recognizer Model",
     description="Trains and tests the model",
     epilog="Alfred, Ali and Mathias | January 2024, Introduction to Intelligent Systems (02461) Exam Project"
 )
-parser.add_argument('-b', '--batch_size', type=int, nargs=1, default=64, help="Batch size | Default: 64")
-parser.add_argument('-l', '--learning_rate', type=float, nargs=1, default=0.01, help="Learning rate | Default: 0.01")
-parser.add_argument('-e', '--epochs', type=float, nargs=1, default=20, help="Number of epochs | Default: 20")
+parser.add_argument('-b', '--batch_size', type=int, nargs=1, default=[64], help="Batch size | Default: 64")
+parser.add_argument('-l', '--learning_rate', type=float, nargs=1, default=[0.01], help="Learning rate | Default: 0.01")
+parser.add_argument('-e', '--epochs', type=int, nargs=1, default=[20], help="Number of epochs | Default: 20")
+parser.add_argument('-c', '--enable_csv', default=True, action='store_false', help="Toggle CSV output | Default: True")
+parser.add_argument('-o', '--output_csv', type=str, nargs=1, default=["data.xlsx"], help="CSV output filename | Default: data.csv")
 args = parser.parse_args()
 
 # Subset of training dataset that is processed together during a single iteration of the training algorithm
-batch_size = args.batch_size
+batch_size = args.batch_size[0]
 # Number of feelings
 num_classes = 7
-learning_rate = args.learning_rate
-num_epochs = args.epochs
+learning_rate = args.learning_rate[0]
+num_epochs = args.epochs[0]
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print("Using", device)
+
+if args.enable_csv:
+    import pandas as pd
+    pd.set_option('max_colwidth', 17)
+
+    # Information for csv output (change manually)
+    loss_function = "CEL"
+    optimizer = "SGD"
+    dataset = "FER2013"
+    convlayers = 4
+    pools = 2
+    user = "Stationær"
+
+    new_data = {"Date & Time": [], "Epochs": [num_epochs], "Batch size": [batch_size], "Learning rate": [learning_rate], "Optimizer function": [optimizer], "Loss function": [loss_function], "Avg. Time / Epoch": [], "Image dimension": [32], "Loss": [], "Min. Loss": [], "Accuracy": [], "Dataset": [dataset], "Device": [device], "Convolutional layers": [convlayers], "Pools": [pools], "Created by": [user]}
+
+    try:
+        df = pd.read_excel(args.output_csv[0])
+    except FileNotFoundError:
+        df = pd.DataFrame(columns=new_data.keys())
+        df.to_excel(args.output_csv[0], index=False)
+        print("Created new Excel file")
 
 all_transforms = transforms.Compose([transforms.Resize((32, 32)),
                                      transforms.ToTensor(),
@@ -87,6 +110,7 @@ total_step = len(train_loader)
 times = []
 
 # Training
+losses = []
 for epoch in range(num_epochs):
     start = perf_counter()
     for i, (images, labels) in enumerate(train_loader):
@@ -104,7 +128,11 @@ for epoch in range(num_epochs):
 
     measure = end - start
     times.append(measure)
-    print(f'Epoch [{epoch+1}/{num_epochs}] | Loss: {loss.item():.4f} | Time elapsed: {measure:.2f} seconds')
+    losses.append(round(loss.item(), 4))
+    print(f'Epoch [{epoch+1}/{num_epochs}] | Loss: {losses[-1]} | Time elapsed: {measure:.2f} seconds')
+
+new_data["Loss"] = [losses[-1]]
+new_data["Min. Loss"] = [min(losses)]
 
 # Testing
 with torch.no_grad():
@@ -118,6 +146,31 @@ with torch.no_grad():
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
     
-    print(f"{(100*correct/total):.4f} % Accurate | Trained on {total_step*batch_size} images")
-    print(f"Average epoch time: {(sum(times)/len(times)):.2f}")
+    accuracy = round(100*correct/total, 4)
+    new_data["Accuracy"] = [accuracy]
+    print(f"{accuracy} % Accurate | Trained on {total_step*batch_size} images")
+    avgtimeepoch = round(sum(times)/len(times), 1)
+    new_data["Avg. Time / Epoch"] = [avgtimeepoch]
+    print(f"Average epoch time: {avgtimeepoch} seconds")
     print(f"Batch size: {batch_size} | Learning rate: {learning_rate}")
+
+if args.enable_csv:
+    import datetime
+    ct = datetime.datetime.now()
+    ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}:{ct.minute}:{ct.second}"
+
+    new_data['Date & Time'] = [ct_text]
+
+    # CSV Format in list
+    # Date & Time   Epochs   Batch size   Learning rate   Optimizer function   Loss function   Avg. Time/Epoch   Image dimension   Loss   Min. Loss   Accuracy   Dataset   Device   Convolutional layers   Pools
+    #      0          1         2             3                   4                 5                6                 7            8         9          10        11        12            13               14
+    df = pd.concat([df, pd.DataFrame(new_data)], ignore_index=True)
+
+    while True:
+        try:
+            df.to_excel(args.output_csv[0], index=False)
+            break
+        except PermissionError:
+            input("Please close the Excel file. Press Enter to continue...")
+    print("Wrote to Excel")
+        
