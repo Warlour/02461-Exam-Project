@@ -9,5 +9,5 @@ Du kan installere alle nødvendige pakker med `py -m pip install -r requirements
 Tjek installation med 
 
 ```python
-python -c "import os, sys; print(os.path.dirname(sys.executable))"
+py -c "import os, sys; print(os.path.dirname(sys.executable))"
 ```
