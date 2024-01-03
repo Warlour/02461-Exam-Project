@@ -5,15 +5,26 @@ import torchvision.transforms as transforms
 from customdataset import CustomFER2013Dataset
 from time import perf_counter
 import pandas as pd
+import argparse
+
+parser = argparse.ArgumentParser(
+    prog="Emotion Recognizer Model",
+    description="Trains and tests the model",
+    epilog="Alfred, Ali and Mathias | January 2024, Introduction to Intelligent Systems (02461) Exam Project"
+)
+parser.add_argument('-b', '--batch_size', type=int, nargs=1, default=64, help="Batch size | Default: 64")
+parser.add_argument('-l', '--learning_rate', type=float, nargs=1, default=0.01, help="Learning rate | Default: 0.01")
+parser.add_argument('-e', '--epochs', type=float, nargs=1, default=20, help="Number of epochs | Default: 20")
+args = parser.parse_args()
 
 # Subset of training dataset that is processed together during a single iteration of the training algorithm
-batch_size = 64
+batch_size = args.batch_size
 # Number of feelings
 num_classes = 7
-learning_rate = 0.01
-num_epochs = 2
+learning_rate = args.learning_rate
+num_epochs = args.epochs
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print("Using", device)
 
 all_transforms = transforms.Compose([transforms.Resize((32, 32)),
@@ -68,7 +79,7 @@ class EmotionRecognizer(nn.Module):
         return out
 
 
-model = EmotionRecognizer(num_classes)
+model = EmotionRecognizer(num_classes).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.005, momentum=0.9)
 total_step = len(train_loader)
