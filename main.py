@@ -184,7 +184,7 @@ if args.enable_csv:
     # CSV Format in list
     # Date & Time   Epochs   Batch size   Learning rate   Optimizer function   Loss function   Avg. Time/Epoch   Image dimension   Loss   Min. Loss   Accuracy   Dataset   Device   Convolutional layers   Pools   Created by   Total training time
     #      0          1         2             3                   4                 5                6                 7            8         9          10        11        12            13               14        15                 16
-    df = pd.concat([df, pd.DataFrame(new_data)], ignore_index=True)
+    
 
     while True:
         try:
@@ -196,6 +196,8 @@ if args.enable_csv:
                 df.to_excel(args.output_csv[0], index=False)
                 print("Created new Excel file")
             
+            df = pd.concat([df, pd.DataFrame(new_data)], ignore_index=True)
+
             # Output
             df.to_excel(args.output_csv[0], index=False)
             break
