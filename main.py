@@ -43,12 +43,7 @@ if args.enable_csv:
 
     new_data = {"Date & Time": [], "Epochs": [num_epochs], "Batch size": [batch_size], "Learning rate": [learning_rate], "Optimizer function": [optimizer], "Loss function": [loss_function], "Avg. Time / Epoch": [], "Image dimension": [32], "Loss": [], "Min. Loss": [], "Accuracy": [], "Dataset": [dataset], "Device": [device], "Convolutional layers": [convlayers], "Pools": [pools], "Created by": [user]}
 
-    try:
-        df = pd.read_excel(args.output_csv[0])
-    except FileNotFoundError:
-        df = pd.DataFrame(columns=new_data.keys())
-        df.to_excel(args.output_csv[0], index=False)
-        print("Created new Excel file")
+    
 
 all_transforms = transforms.Compose([transforms.Resize((32, 32)),
                                      transforms.ToTensor(),
@@ -193,6 +188,15 @@ if args.enable_csv:
 
     while True:
         try:
+            # Input
+            try:
+                df = pd.read_excel(args.output_csv[0])
+            except FileNotFoundError:
+                df = pd.DataFrame(columns=new_data.keys())
+                df.to_excel(args.output_csv[0], index=False)
+                print("Created new Excel file")
+            
+            # Output
             df.to_excel(args.output_csv[0], index=False)
             break
         except PermissionError:
