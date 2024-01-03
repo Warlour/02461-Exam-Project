@@ -5,7 +5,7 @@ import torchvision.transforms as transforms
 from customdataset import CustomFER2013Dataset
 from time import perf_counter
 import argparse
-import sys
+from collections import deque
 
 parser = argparse.ArgumentParser(
     prog="Emotion Recognizer Model",
@@ -109,6 +109,9 @@ total_step = len(train_loader)
 
 times = []
 
+N = 30  # Number of step times to display and consider in the moving average
+steptimes = []
+
 # Training
 losses = []
 for epoch in range(num_epochs):
@@ -125,18 +128,32 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        try:
-            print(f" {i}/{total_step} | ETA: {(sum(steptimes)/len(steptimes))*(total_step-len(steptimes)):.0f} s", end="\r")
-        except ZeroDivisionError:
-            print(f" {i}/{total_step}", end="\r")
+
         stepend = perf_counter()
         steptimes.append(stepend - stepstart)
+
+        # Calculate ETA every N steps
+        if i % N == 0 and i > 0:
+            avg_steptime = sum(steptimes) / len(steptimes)
+            remaining_steps = total_step - i
+            eta = avg_steptime * remaining_steps
+
+            # Calculate drift factor
+            actual_time = stepend - start
+            estimated_time = i * avg_steptime
+            drift_factor = actual_time / estimated_time if estimated_time > 0 else 1
+
+            # Adjust ETA by drift factor
+            eta *= drift_factor
+
+            print(f" {i}/{total_step} | ETA: {eta:.0f}s           ", end="\r")
+
     end = perf_counter()
 
     measure = end - start
     times.append(measure)
     losses.append(round(loss.item(), 4))
-    print(f'Epoch [{epoch+1}/{num_epochs}] | Loss: {losses[-1]} | Time elapsed: {measure:.2f} seconds')
+    print(f'Epoch [{epoch+1}/{num_epochs}] | Loss: {losses[-1]} | Time elapsed: {measure:.2f}s')
 
 new_data["Loss"] = [losses[-1]]
 new_data["Min. Loss"] = [min(losses)]
