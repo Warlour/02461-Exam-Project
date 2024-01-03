@@ -184,10 +184,11 @@ if args.enable_csv:
     ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}:{ct.minute}:{ct.second}"
 
     new_data['Date & Time'] = [ct_text]
+    new_data['Total training time'] = [sum(times)]
 
     # CSV Format in list
-    # Date & Time   Epochs   Batch size   Learning rate   Optimizer function   Loss function   Avg. Time/Epoch   Image dimension   Loss   Min. Loss   Accuracy   Dataset   Device   Convolutional layers   Pools
-    #      0          1         2             3                   4                 5                6                 7            8         9          10        11        12            13               14
+    # Date & Time   Epochs   Batch size   Learning rate   Optimizer function   Loss function   Avg. Time/Epoch   Image dimension   Loss   Min. Loss   Accuracy   Dataset   Device   Convolutional layers   Pools   Created by   Total training time
+    #      0          1         2             3                   4                 5                6                 7            8         9          10        11        12            13               14        15                 16
     df = pd.concat([df, pd.DataFrame(new_data)], ignore_index=True)
 
     while True:
