@@ -1,5 +1,3 @@
-# https://blog.paperspace.com/writing-cnns-from-scratch-in-pytorch/
-
 import torch
 import torch.nn as nn
 import torchvision
@@ -11,7 +9,7 @@ batch_size = 64
 # Number of feelings
 num_classes = 7
 learning_rate = 0.001
-num_epochs = 20
+num_epochs = 1
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -23,20 +21,15 @@ all_transforms = transforms.Compose([transforms.Resize((32, 32)),
 
 
 
-train_dataset = torchvision.datasets.FER2013(root = './data',
-                                             transform = all_transforms)
-# train_dataset = torchvision.datasets.CIFAR10(root = './data',
-#                                              train = True,
-#                                              transform = all_transforms,
-#                                              download = True)
-print(train_dataset)
+#train_dataset = torchvision.datasets.FER2013(root = './data',
+#                                             transform = all_transforms)
 
-# train_dataset = CustomFER2013Dataset(root='dataset\\train', transform=all_transforms)
+train_dataset = CustomFER2013Dataset(root='data/FER2013/train', transform=all_transforms)
 
-test_dataset = torchvision.datasets.FER2013(root = './data',
-                                            split = "test",
-                                            transform = all_transforms)
-# test_dataset = CustomFER2013Dataset(root='dataset\\test', transform=all_transforms)
+#test_dataset = torchvision.datasets.FER2013(root = './data',
+#                                            split = "test",
+#                                            transform = all_transforms)
+test_dataset = CustomFER2013Dataset(root='data/FER2013/test', transform=all_transforms)
 
 train_loader = torch.utils.data.DataLoader(dataset = train_dataset,
                                            batch_size = batch_size,
@@ -60,7 +53,7 @@ class EmotionRecognizer(nn.Module):
 
         '''Fully connected layers tilknytter hver neuron til næste neuron'''
         self.fc1 = nn.Linear(1600, 128) # Fully connected layer
-        self.relu1 = nn.ReLu() # Aktiveringsfunktion
+        self.relu1 = nn.ReLU() # Aktiveringsfunktion
         self.fc2 = nn.Linear(128, num_classes)
     
     def forward(self, x):
@@ -96,6 +89,7 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        print(f"{i}", end="\r")
     
     print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
 

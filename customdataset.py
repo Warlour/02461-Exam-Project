@@ -20,12 +20,12 @@ class CustomFER2013Dataset(VisionDataset):
         for emotion in self.classes:
             emotion_folder = os.path.join(self.root, emotion)
             for filename in os.listdir(emotion_folder):
-                print(filename)
-                if filename.endswith(".png"):
+                if filename.endswith(".jpg"):
                     img_path = os.path.join(emotion_folder, filename)
                     images.append(img_path)
                     labels.append(self.class_to_idx[emotion])
 
+        #print(images)
         return images, labels
 
     def __len__(self):
@@ -33,10 +33,11 @@ class CustomFER2013Dataset(VisionDataset):
 
     def __getitem__(self, idx):
         img_path, label = self.images[idx], self.labels[idx]
-        img = read_image(img_path, format='png')
+        img = read_image(img_path)
         
         if self.transform:
-            img = self.transform(img)
+            trans = transforms.ToPILImage()
+            img = self.transform(trans(img))
 
         if self.target_transform:
             label = self.target_transform(label)
@@ -44,6 +45,6 @@ class CustomFER2013Dataset(VisionDataset):
         return img, label
 
 # Example usage:
-#custom_transforms = transforms.Compose([...])  # Define your transformations here
-
-#print(custom_fer2013_dataset)
+# custom_transforms = transforms.Compose([...])  # Define your transformations here
+# C = CustomFER2013Dataset(Vis)
+# print(custom_fer2013_dataset)
