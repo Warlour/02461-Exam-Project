@@ -113,7 +113,9 @@ times = []
 losses = []
 for epoch in range(num_epochs):
     start = perf_counter()
+    steptimes = []
     for i, (images, labels) in enumerate(train_loader):
+        stepstart = perf_counter()
         images = images.to(device)
         labels = labels.to(device)
 
@@ -123,7 +125,12 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        print(f" {i}/{total_step}", end="\r")
+        try:
+            print(f" {i}/{total_step} | ETA: {(sum(steptimes)/len(steptimes))*(total_step-len(steptimes)):.0f} s", end="\r")
+        except ZeroDivisionError:
+            print(f" {i}/{total_step}", end="\r")
+        stepend = perf_counter()
+        steptimes.append(stepend - stepstart)
     end = perf_counter()
 
     measure = end - start
@@ -173,4 +180,3 @@ if args.enable_csv:
         except PermissionError:
             input("Please close the Excel file. Press Enter to continue...")
     print("Wrote to Excel")
-        
