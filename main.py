@@ -3,13 +3,14 @@ import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
 from customdataset import CustomFER2013Dataset
+from time import perf_counter
 
 # Subset of training dataset that is processed together during a single iteration of the training algorithm
 batch_size = 64
 # Number of feelings
 num_classes = 7
-learning_rate = 0.001
-num_epochs = 1
+learning_rate = 0.01
+num_epochs = 2
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -70,7 +71,11 @@ criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.005, momentum=0.9)
 total_step = len(train_loader)
 
+times = []
+
+# Training
 for epoch in range(num_epochs):
+    start = perf_counter()
     for i, (images, labels) in enumerate(train_loader):
         images = images.to(device)
         labels = labels.to(device)
@@ -82,9 +87,13 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
         print(f" {i}/{total_step}", end="\r")
-    
-    print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
+    end = perf_counter()
 
+    measure = end - start
+    times.append(measure)
+    print(f'Epoch [{epoch+1}/{num_epochs}] | Loss: {loss.item():.4f} | Time elapsed: {measure:.2f} seconds')
+
+# Testing
 with torch.no_grad():
     correct = 0
     total = 0
@@ -96,4 +105,4 @@ with torch.no_grad():
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
     
-    print(f"{(100*correct/total):.4f} % Accurate | Trained on {total_step*batch_size} images")
+    print(f"{(100*correct/total):.4f} % Accurate | Trained on {total_step*batch_size} images\nAverage epoch time: {(sum(times)/len(times)):.2f}")
