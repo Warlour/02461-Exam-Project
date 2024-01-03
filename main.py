@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
+from customdataset import CustomFER2013Dataset
 
 # Subset of training dataset that is processed together during a single iteration of the training algorithm
 batch_size = 64
@@ -24,9 +25,12 @@ all_transforms = transforms.Compose([transforms.Resize((32, 32)),
 train_dataset = torchvision.datasets.FER2013(root = './data',
                                              transform = all_transforms)
 
+# train_dataset = CustomFER2013Dataset(root='dataset\\train', transform=all_transforms)
+
 test_dataset = torchvision.datasets.FER2013(root = './data',
-                                             split = "test",
-                                             transform = all_transforms)
+                                            split = "test",
+                                            transform = all_transforms)
+# test_dataset = CustomFER2013Dataset(root='dataset\\test', transform=all_transforms)
 
 train_loader = torch.utils.data.DataLoader(dataset = train_dataset,
                                            batch_size = batch_size,
