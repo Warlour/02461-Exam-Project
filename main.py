@@ -22,8 +22,14 @@ all_transforms = transforms.Compose([transforms.Resize((32, 32)),
                                     ])
 
 
+
 train_dataset = torchvision.datasets.FER2013(root = './data',
                                              transform = all_transforms)
+# train_dataset = torchvision.datasets.CIFAR10(root = './data',
+#                                              train = True,
+#                                              transform = all_transforms,
+#                                              download = True)
+print(train_dataset)
 
 # train_dataset = CustomFER2013Dataset(root='dataset\\train', transform=all_transforms)
 
