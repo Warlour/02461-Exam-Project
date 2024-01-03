@@ -4,6 +4,7 @@ import torchvision
 import torchvision.transforms as transforms
 from customdataset import CustomFER2013Dataset
 from time import perf_counter
+import pandas as pd
 
 # Subset of training dataset that is processed together during a single iteration of the training algorithm
 batch_size = 64
@@ -13,6 +14,7 @@ learning_rate = 0.01
 num_epochs = 2
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print("Using", device)
 
 all_transforms = transforms.Compose([transforms.Resize((32, 32)),
                                      transforms.ToTensor(),
