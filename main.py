@@ -105,4 +105,6 @@ with torch.no_grad():
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
     
-    print(f"{(100*correct/total):.4f} % Accurate | Trained on {total_step*batch_size} images\nAverage epoch time: {(sum(times)/len(times)):.2f}")
+    print(f"{(100*correct/total):.4f} % Accurate | Trained on {total_step*batch_size} images")
+    print(f"Average epoch time: {(sum(times)/len(times)):.2f}")
+    print(f"Batch size: {batch_size} | Learning rate: {learning_rate}")
