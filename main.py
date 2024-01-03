@@ -89,7 +89,7 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        print(f"{i}", end="\r")
+        print(f" {i}/{total_step}", end="\r")
     
     print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
 
@@ -104,4 +104,4 @@ with torch.no_grad():
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
     
-    print(f"Accuracy of the network on the {28709} train images: {100*correct/total}%")
+    print(f"{(100*correct/total):.4f} % Accurate | Trained on {total_step*batch_size} images")
