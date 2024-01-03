@@ -19,16 +19,8 @@ all_transforms = transforms.Compose([transforms.Resize((32, 32)),
                                                           std=[0.5])
                                     ])
 
-
-
-#train_dataset = torchvision.datasets.FER2013(root = './data',
-#                                             transform = all_transforms)
-
 train_dataset = CustomFER2013Dataset(root='data/FER2013/train', transform=all_transforms)
 
-#test_dataset = torchvision.datasets.FER2013(root = './data',
-#                                            split = "test",
-#                                            transform = all_transforms)
 test_dataset = CustomFER2013Dataset(root='data/FER2013/test', transform=all_transforms)
 
 train_loader = torch.utils.data.DataLoader(dataset = train_dataset,
