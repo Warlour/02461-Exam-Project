@@ -9,6 +9,10 @@ from math import ceil
 from models import EmotionRecognizer
 from functions import *
 
+# Table print
+from rich.console import Console
+from rich.table import Column, Table
+
 parser = argparse.ArgumentParser(
     prog="Emotion Recognizer Model",
     description="Trains and tests the model",
@@ -33,6 +37,7 @@ learning_rate = args.learning_rate
 num_epochs = args.epochs
 gamma = args.gamma
 weight_decay = args.weight_decay
+min_lr = 0
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print("Using", device)
@@ -53,7 +58,29 @@ if not args.disable_csv:
     pools = 2
     user = "Stationær"
 
-    new_data = {"Date & Time": [], "Epochs": [num_epochs], "Batch size": [batch_size], "Learning rate": [], "Optimizer function": [optimizerfunc], "Scheduler": [schedulername], "Loss function": [loss_function], "Avg. Time / Epoch": [], "Image dimension": [32], "Loss": [], "Min. Loss": [], "Accuracy": [], "Dataset": [dataset], "Device": [device], "Convolutional layers": [convlayers], "Pools": [pools], "Created by": [user], "Gamma": [gamma], "Weight decay": [weight_decay]}
+    new_data = {
+        "Date & Time":          [], 
+        "Epochs":               [num_epochs], 
+        "Batch size":           [batch_size], 
+        "Learning rate":        [], 
+        "Optimizer function":   [optimizerfunc], 
+        "Scheduler":            [schedulername], 
+        "Loss function":        [loss_function], 
+        "Avg. Time / Epoch":    [], 
+        "Image dimension":      [32], 
+        "Loss":                 [], 
+        "Min. Loss":            [], 
+        "Accuracy":             [], 
+        "Dataset":              [dataset], 
+        "Device":               [device], 
+        "Convolutional layers": [convlayers], 
+        "Pools":                [pools], 
+        "Created by":           [user], 
+        "Gamma":                [gamma], 
+        "Weight decay":         [weight_decay], 
+        "Scheduler":            [schedulername], 
+        "Min. LR":              [min_lr]
+    }
 
 
 # Load dataset
@@ -79,7 +106,7 @@ model = EmotionRecognizer(num_classes).to(device)
 lossfunction = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 if not args.disable_scheduler:
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=0)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=min_lr)
 
 total_step = len(train_loader)
 
@@ -162,11 +189,8 @@ with torch.no_grad():
     
     accuracy = round(100*correct/total, 4)
     new_data["Accuracy"] = [accuracy]
-    print(f"{accuracy} % Accurate | Trained on {total_step*batch_size} images")
     avgtimeepoch = round(sum(times)/len(times), 1)
     new_data["Avg. Time / Epoch"] = [avgtimeepoch]
-    print(f"Average epoch time: {avgtimeepoch} seconds")
-    print(f"Batch size: {batch_size} | Learning rate: {last_lr}")
 
 ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}.{ct.minute}.{ct.second}"
 
@@ -176,7 +200,7 @@ torch.save(model.state_dict(), f"models/{ct_text} b{batch_size}-e{num_epochs}-a{
 if not args.disable_csv:
     ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}:{ct.minute}:{ct.second}"
     new_data['Date & Time'] = [ct_text]
-    new_data['Total training time'] = [sum(times)]
+    new_data['Total training time'] = [round(sum(times), 1)]
     new_data['Learning rate'] = [last_lr]
 
     while True:
@@ -197,3 +221,15 @@ if not args.disable_csv:
         except PermissionError:
             input("Please close the Excel file. Press Enter to continue...")
     print("Wrote to Excel")
+
+console = Console()
+table = Table(show_header=True, header_style="bold magenta")
+
+data = []
+for key, value in new_data.items():
+    table.add_column(key)
+    data.append(str(value[0]))
+
+table.add_row(*data)
+
+console.print(table)
