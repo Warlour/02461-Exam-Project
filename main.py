@@ -8,6 +8,7 @@ import argparse
 import datetime
 import torch.optim as optim
 from torch.optim.lr_scheduler import MultiStepLR
+from math import ceil
 
 
 parser = argparse.ArgumentParser(
@@ -104,7 +105,9 @@ model = EmotionRecognizer(num_classes).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.005, momentum=0.9)
 total_step = len(train_loader)
-scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20], gamma=0.1)
+
+milestep = [i for i in range(ceil(num_epochs/10), num_epochs + 1, ceil(num_epochs/10))]
+scheduler = MultiStepLR(optimizer, milestones=milestep, gamma=0.1)
 
 times = []
 
