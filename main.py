@@ -5,7 +5,10 @@ import torchvision.transforms as transforms
 from customdataset import CustomFER2013Dataset
 from time import perf_counter
 import argparse
-from collections import deque
+import datetime
+import torch.optim as optim
+from torch.optim.lr_scheduler import MultiStepLR
+
 
 parser = argparse.ArgumentParser(
     prog="Emotion Recognizer Model",
@@ -35,13 +38,13 @@ if args.enable_csv:
 
     # Information for csv output (change manually)
     loss_function = "CEL"
-    optimizer = "SGD"
+    optimizerfunc = "SGD"
     dataset = "FER2013"
     convlayers = 4
     pools = 2
     user = "Stationær"
 
-    new_data = {"Date & Time": [], "Epochs": [num_epochs], "Batch size": [batch_size], "Learning rate": [learning_rate], "Optimizer function": [optimizer], "Loss function": [loss_function], "Avg. Time / Epoch": [], "Image dimension": [32], "Loss": [], "Min. Loss": [], "Accuracy": [], "Dataset": [dataset], "Device": [device], "Convolutional layers": [convlayers], "Pools": [pools], "Created by": [user]}
+    new_data = {"Date & Time": [], "Epochs": [num_epochs], "Batch size": [batch_size], "Learning rate": [learning_rate], "Optimizer function": [optimizerfunc], "Loss function": [loss_function], "Avg. Time / Epoch": [], "Image dimension": [32], "Loss": [], "Min. Loss": [], "Accuracy": [], "Dataset": [dataset], "Device": [device], "Convolutional layers": [convlayers], "Pools": [pools], "Created by": [user]}
 
     
 
@@ -101,6 +104,7 @@ model = EmotionRecognizer(num_classes).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.005, momentum=0.9)
 total_step = len(train_loader)
+scheduler = MultiStepLR(optimizer, milestones=[5, 10, 15, 20], gamma=0.1)
 
 times = []
 
@@ -123,6 +127,7 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        scheduler.step()
 
         stepend = perf_counter()
         steptimes.append(stepend - stepstart)
@@ -150,10 +155,13 @@ for epoch in range(num_epochs):
     losses.append(round(loss.item(), 4))
     print(f'Epoch [{epoch+1}/{num_epochs}] | Loss: {losses[-1]} | Time elapsed: {measure:.2f}s')
 
-new_data["Loss"] = [losses[-1]]
-new_data["Min. Loss"] = [min(losses)]
+ct = datetime.datetime.now()
+if args.enable_csv:
+    new_data["Loss"] = [losses[-1]]
+    new_data["Min. Loss"] = [min(losses)]
 
 # Testing
+print("Testing...", end="\r")
 with torch.no_grad():
     correct = 0
     total = 0
@@ -173,19 +181,20 @@ with torch.no_grad():
     print(f"Average epoch time: {avgtimeepoch} seconds")
     print(f"Batch size: {batch_size} | Learning rate: {learning_rate}")
 
-if args.enable_csv:
-    import datetime
-    ct = datetime.datetime.now()
-    ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}:{ct.minute}:{ct.second}"
+ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}.{ct.minute}.{ct.second}"
 
+# Save model
+#best_model_state = copy.deepcopy()
+torch.save(model.state_dict(), f"{ct_text} b{batch_size}-e{num_epochs}-a{accuracy} {loss_function}-{optimizerfunc}.pt")
+
+if args.enable_csv:
+    ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}:{ct.minute}:{ct.second}"
     new_data['Date & Time'] = [ct_text]
     new_data['Total training time'] = [sum(times)]
 
     # CSV Format in list
     # Date & Time   Epochs   Batch size   Learning rate   Optimizer function   Loss function   Avg. Time/Epoch   Image dimension   Loss   Min. Loss   Accuracy   Dataset   Device   Convolutional layers   Pools   Created by   Total training time
     #      0          1         2             3                   4                 5                6                 7            8         9          10        11        12            13               14        15                 16
-    
-
     while True:
         try:
             # Input
