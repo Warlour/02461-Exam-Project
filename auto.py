@@ -3,7 +3,7 @@ import os
 import subprocess
 import time
 
-delay = 2 # Delay before starting next process in seconds
+delay = 10 # Delay before starting next process in seconds
 max_processes = 10 # Max number of concurrent processes
 total = 40 # Total number of processes
 launchedprocesses = 0
@@ -29,7 +29,7 @@ if __name__ == "__main__":
             time.sleep(delay)  # Add delay before starting next process
 
         for p in processes:
-            if not p.is_alive() and finishedprocesses < total:
+            if not p.is_alive():
                 processes.remove(p)
                 finishedprocesses += 1
 
