@@ -44,9 +44,9 @@ if args.enable_csv:
     pools = 2
     user = "Stationær"
 
-    new_data = {"Date & Time": [], "Epochs": [num_epochs], "Batch size": [batch_size], "Learning rate": [], "Optimizer function": [optimizerfunc], "Loss function": [loss_function], "Avg. Time / Epoch": [], "Image dimension": [32], "Loss": [], "Min. Loss": [], "Accuracy": [], "Dataset": [dataset], "Device": [device], "Convolutional layers": [convlayers], "Pools": [pools], "Created by": [user]}
+    new_data = {"Date & Time": [], "Epochs": [num_epochs], "Batch size": [batch_size], "Learning rate": [], "Optimizer function": [optimizerfunc], "Loss function": [loss_function], "Avg. Time / Epoch": [], "Image dimension": [32], "Loss": [], "Min. Loss": [], "Accuracy": [], "Dataset": [dataset], "Device": [device], "Convolutional layers": [convlayers], "Pools": [pools], "Created by": [user], "Gamma": [gamma]}
 
-    
+
 # Load dataset
 all_transforms = transforms.Compose([transforms.Resize((32, 32)),
                                      transforms.ToTensor(),
@@ -71,7 +71,7 @@ lossfunction = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.005, momentum=0.9)
 total_step = len(train_loader)
 
-# milestep = [i for i in range(ceil(num_epochs/10), num_epochs + 1, ceil(num_epochs/10))]
+milestep = [i for i in range(ceil(num_epochs/10), num_epochs + 1, ceil(num_epochs/10))]
 
 times = []
 
@@ -81,8 +81,9 @@ steptimes = []
 # Training
 losses = []
 for epoch in range(num_epochs):
-    # if epoch > 0 and epoch+1 in milestep:
-    #     print("Learning rate decreased")
+    if epoch > 0 and epoch+1 in milestep:
+        print("Learning rate decreased")
+        set_lr(optimizer, get_lr(optimizer) * gamma)
     start = perf_counter()
     steptimes = []
     for i, (images, labels) in enumerate(train_loader):
@@ -121,7 +122,7 @@ for epoch in range(num_epochs):
     measure = end - start
     times.append(measure)
     losses.append(round(loss.item(), 4))
-    print(f'Epoch [{epoch+1}/{num_epochs}] | Loss: {losses[-1]} | Time elapsed: {measure:.2f}s | Learning rate: {get_lr(optimizer):.5f}')
+    print(f"Epoch [{epoch+1}/{num_epochs}] | Loss: {losses[-1]} | Time elapsed: {measure:.2f}s | Learning rate: {get_lr(optimizer):.5f}")
 
 ct = datetime.datetime.now()
 if args.enable_csv:
