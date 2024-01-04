@@ -1,15 +1,13 @@
 import torch
 import torch.nn as nn
-import torchvision
 import torchvision.transforms as transforms
 from customdataset import CustomFER2013Dataset
 from time import perf_counter
 import argparse
 import datetime
-import torch.optim as optim
-from torch.optim.lr_scheduler import MultiStepLR
 from math import ceil
-
+from models import EmotionRecognizer
+from functions import *
 
 parser = argparse.ArgumentParser(
     prog="Emotion Recognizer Model",
@@ -19,6 +17,9 @@ parser = argparse.ArgumentParser(
 parser.add_argument('-b', '--batch_size', type=int, nargs=1, default=[64], help="Batch size | Default: 64")
 parser.add_argument('-l', '--learning_rate', type=float, nargs=1, default=[0.01], help="Learning rate | Default: 0.01")
 parser.add_argument('-e', '--epochs', type=int, nargs=1, default=[20], help="Number of epochs | Default: 20")
+parser.add_argument('-ld', '--learning_rate_decrease', default=True, action='store_false', help="Decrease learning rate by gamma | Default: True")
+parser.add_argument('-g', '--gamma', type=float, nargs=1, default=[0.1], help="Gamma | Default: 0.1")
+parser.add_argument('-wd', '--weight_decay', type=float, nargs=1, default=[0], help="Optimizer weight decay | Default: 0")
 parser.add_argument('-c', '--enable_csv', default=True, action='store_false', help="Toggle CSV output | Default: True")
 parser.add_argument('-o', '--output_csv', type=str, nargs=1, default=["data.xlsx"], help="CSV output filename | Default: data.csv")
 args = parser.parse_args()
@@ -29,13 +30,18 @@ batch_size = args.batch_size[0]
 num_classes = 7
 learning_rate = args.learning_rate[0]
 num_epochs = args.epochs[0]
+gamma = args.gamma[0]
+weight_decay = args.weight_decay[0]
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print("Using", device)
 
+if not args.learning_rate_decrease:
+    print("Learning rate decrease disabled")
+    gamma = 0
+
 if args.enable_csv:
     import pandas as pd
-    pd.set_option('max_colwidth', 17)
 
     # Information for csv output (change manually)
     loss_function = "CEL"
@@ -45,10 +51,10 @@ if args.enable_csv:
     pools = 2
     user = "Stationær"
 
-    new_data = {"Date & Time": [], "Epochs": [num_epochs], "Batch size": [batch_size], "Learning rate": [learning_rate], "Optimizer function": [optimizerfunc], "Loss function": [loss_function], "Avg. Time / Epoch": [], "Image dimension": [32], "Loss": [], "Min. Loss": [], "Accuracy": [], "Dataset": [dataset], "Device": [device], "Convolutional layers": [convlayers], "Pools": [pools], "Created by": [user]}
+    new_data = {"Date & Time": [], "Epochs": [num_epochs], "Batch size": [batch_size], "Learning rate": [], "Optimizer function": [optimizerfunc], "Loss function": [loss_function], "Avg. Time / Epoch": [], "Image dimension": [32], "Loss": [], "Min. Loss": [], "Accuracy": [], "Dataset": [dataset], "Device": [device], "Convolutional layers": [convlayers], "Pools": [pools], "Created by": [user], "Gamma": [gamma], "Weight decay": [weight_decay]}
 
-    
 
+# Load dataset
 all_transforms = transforms.Compose([transforms.Resize((32, 32)),
                                      transforms.ToTensor(),
                                      transforms.Normalize(mean=[0.5],
@@ -67,47 +73,12 @@ test_loader = torch.utils.data.DataLoader(dataset = test_dataset,
                                            batch_size = batch_size,
                                            shuffle = True)
 
-class EmotionRecognizer(nn.Module):
-    def __init__(self, num_classes):
-        super(EmotionRecognizer, self).__init__()
-        # in_channels: color channels, black and white is 1, rgb is 3
-        self.conv_layer1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3)
-        self.conv_layer2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3)
-        self.max_pool1 = nn.MaxPool2d(kernel_size = 2, stride = 2)
-
-        self.conv_layer3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3)
-        self.conv_layer4 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3)
-        self.max_pool2 = nn.MaxPool2d(kernel_size = 2, stride = 2)
-
-        '''Fully connected layers tilknytter hver neuron til næste neuron'''
-        self.fc1 = nn.Linear(1600, 128) # Fully connected layer
-        self.relu1 = nn.ReLU() # Aktiveringsfunktion
-        self.fc2 = nn.Linear(128, num_classes)
-    
-    def forward(self, x):
-        out = self.conv_layer1(x)
-        out = self.conv_layer2(out)
-        out = self.max_pool1(out)
-
-        out = self.conv_layer3(out)
-        out = self.conv_layer4(out)
-        out = self.max_pool2(out)
-
-        out = out.reshape(out.size(0), -1)
-
-        out = self.fc1(out)
-        out = self.relu1(out)
-        out=self.fc2(out)
-        return out
-
-
 model = EmotionRecognizer(num_classes).to(device)
-criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.005, momentum=0.9)
+lossfunction = nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=0.9)
 total_step = len(train_loader)
 
 milestep = [i for i in range(ceil(num_epochs/10), num_epochs + 1, ceil(num_epochs/10))]
-scheduler = MultiStepLR(optimizer, milestones=milestep, gamma=0.1)
 
 times = []
 
@@ -117,6 +88,9 @@ steptimes = []
 # Training
 losses = []
 for epoch in range(num_epochs):
+    if epoch > 0 and epoch+1 in milestep and args.learning_rate_decrease:
+        print("Learning rate decreased")
+        set_lr(optimizer, get_lr(optimizer) * gamma)
     start = perf_counter()
     steptimes = []
     for i, (images, labels) in enumerate(train_loader):
@@ -125,12 +99,11 @@ for epoch in range(num_epochs):
         labels = labels.to(device)
 
         outputs = model(images)
-        loss = criterion(outputs, labels)
+        loss = lossfunction(outputs, labels)
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        scheduler.step()
 
         stepend = perf_counter()
         steptimes.append(stepend - stepstart)
@@ -138,8 +111,9 @@ for epoch in range(num_epochs):
         # Calculate ETA every N steps
         if i % N == 0 and i > 0:
             avg_steptime = sum(steptimes) / len(steptimes)
-            remaining_steps = total_step - i
-            eta = avg_steptime * remaining_steps
+            remaining_steps_current_epoch = total_step - i
+            remaining_steps_total = remaining_steps_current_epoch + total_step * (num_epochs - epoch - 1)
+            eta = avg_steptime * remaining_steps_current_epoch
 
             # Calculate drift factor
             actual_time = stepend - start
@@ -148,15 +122,17 @@ for epoch in range(num_epochs):
 
             # Adjust ETA by drift factor
             eta *= drift_factor
+            total_eta = avg_steptime * remaining_steps_total * drift_factor
 
-            print(f" {i}/{total_step} | ETA: {eta:.0f}s           ", end="\r")
+            print(f" {i}/{total_step} | ETA: {eta:.0f}s | Total ETA: {total_eta:.0f}s         ", end="\r")
+        
 
     end = perf_counter()
 
     measure = end - start
     times.append(measure)
     losses.append(round(loss.item(), 4))
-    print(f'Epoch [{epoch+1}/{num_epochs}] | Loss: {losses[-1]} | Time elapsed: {measure:.2f}s')
+    print(f"Epoch [{epoch+1}/{num_epochs}] | Loss: {losses[-1]} | Time elapsed: {measure:.2f}s | Learning rate: {get_lr(optimizer):.5f}")
 
 ct = datetime.datetime.now()
 if args.enable_csv:
@@ -194,10 +170,8 @@ if args.enable_csv:
     ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}:{ct.minute}:{ct.second}"
     new_data['Date & Time'] = [ct_text]
     new_data['Total training time'] = [sum(times)]
+    new_data['Learning rate'] = [get_lr(optimizer)]
 
-    # CSV Format in list
-    # Date & Time   Epochs   Batch size   Learning rate   Optimizer function   Loss function   Avg. Time/Epoch   Image dimension   Loss   Min. Loss   Accuracy   Dataset   Device   Convolutional layers   Pools   Created by   Total training time
-    #      0          1         2             3                   4                 5                6                 7            8         9          10        11        12            13               14        15                 16
     while True:
         try:
             # Input
