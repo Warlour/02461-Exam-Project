@@ -57,6 +57,7 @@ if not args.disable_csv:
     convlayers = 4
     pools = 2
     user = "Stationær"
+    note = "Test 1"
 
     new_data = {
         "Date & Time":          [], 
@@ -79,7 +80,8 @@ if not args.disable_csv:
         "Gamma":                [gamma], 
         "Weight decay":         [weight_decay], 
         "Scheduler":            [schedulername], 
-        "Min. LR":              [min_lr]
+        "Min. LR":              [min_lr],
+        "Note":                 [note]
     }
 
 
