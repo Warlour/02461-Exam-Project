@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser(
     epilog="Alfred, Ali and Mathias | January 2024, Introduction to Intelligent Systems (02461) Exam Project"
 )
 parser.add_argument('-b', '--batch_size', type=int, nargs=1, default=[64], help="Batch size | Default: 64")
-parser.add_argument('-l', '--learning_rate', type=float, nargs=1, default=[0.001], help="Learning rate | Default: 0.01")
+parser.add_argument('-l', '--learning_rate', type=float, nargs=1, default=[0.01], help="Learning rate | Default: 0.01")
 parser.add_argument('-e', '--epochs', type=int, nargs=1, default=[20], help="Number of epochs | Default: 20")
 parser.add_argument('-w', '--weight_decay', type=float, nargs=1, default=[0.005], help="Weight Decay | Default: 0.005")
 parser.add_argument('-c', '--enable_csv', default=True, action='store_false', help="Toggle CSV output | Default: True")
@@ -47,7 +47,7 @@ if args.enable_csv:
 
     # Information for csv output (change manually)
     loss_function = "CEL"
-    optimizerfunc = "Adam"
+    optimizerfunc = "SGD no momentum"
     dataset = "FER2013"
     convlayers = 4
     pools = 2
@@ -84,12 +84,11 @@ class EmotionRecognizer(nn.Module):
         self.max_pool1 = nn.MaxPool2d(kernel_size = 2, stride = 2)
 
         self.conv_layer3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3)
-        self.max_pool2 = nn.MaxPool2d(kernel_size = 2, stride = 2)
         self.conv_layer4 = nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3)
-        self.max_pool3 = nn.MaxPool2d(kernel_size = 2, stride = 2)
+        self.max_pool2 = nn.MaxPool2d(kernel_size = 2, stride = 2)
 
         '''Fully connected layers tilknytter hver neuron til næste neuron'''
-        self.fc1 = nn.Linear(1024, 128) # Fully connected layer
+        self.fc1 = nn.Linear(1600, 128) # Fully connected layer
         self.relu1 = nn.ReLU() # Aktiveringsfunktion
         self.fc2 = nn.Linear(128, num_classes)
     
@@ -99,9 +98,8 @@ class EmotionRecognizer(nn.Module):
         out = self.max_pool1(out)
 
         out = self.conv_layer3(out)
-        out = self.max_pool2(out)
         out = self.conv_layer4(out)
-        out = self.max_pool3(out)
+        out = self.max_pool2(out)
 
         out = out.reshape(out.size(0), -1)
 
@@ -109,25 +107,12 @@ class EmotionRecognizer(nn.Module):
         out = self.relu1(out)
         out=self.fc2(out)
         return out
-#if torch.cuda.is_available():
-#    model = EmotionRecognizer(num_classes).to(device).half()
-#    model = model.to(dtype=torch.float16)
-#else:
-#    model = EmotionRecognizer(num_classes).to(device)
+
 
 model = EmotionRecognizer(num_classes).to(device)
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-#optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.005, momentum=0.9)
+optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.005)
 total_step = len(train_loader)
-
-#total_steps = len(train_loader) * num_epochs  # Corrected total_steps
-#scheduler = OneCycleLR(optimizer, max_lr=0.1, total_steps=total_steps)  # OneCycle
-#milestones = [int(i * num_epochs / 5) for i in range(1, 5)]
-#scheduler = MultiStepLR(optimizer, milestones=milestones, gamma=0.5) #MultiStep
-#scheduler = CosineAnnealingLR(optimizer, T_max=num_epochs) #CosineAnnealing
-#scheduler = ExponentialLR(optimizer, gamma=0.95, last_epoch=-1) #Exponetial
-#scheduler = lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)  # StepLR
 
 times = []
 
@@ -150,7 +135,6 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        #scheduler.step()
 
         stepend = perf_counter()
         steptimes.append(stepend - stepstart)
@@ -207,7 +191,6 @@ with torch.no_grad():
 ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}.{ct.minute}.{ct.second}"
 
 # Save model
-#best_model_state = copy.deepcopy()
 torch.save(model.state_dict(), f"models/{ct_text} b{batch_size}-e{num_epochs}-a{accuracy} {loss_function}-{optimizerfunc}.pt")
 
 if args.enable_csv:
