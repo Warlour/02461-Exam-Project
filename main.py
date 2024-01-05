@@ -8,7 +8,7 @@ import datetime
 from math import ceil
 from models import EmotionRecognizer
 from functions import *
-import os
+import os, time
 
 # Table print
 from rich.console import Console
@@ -227,7 +227,8 @@ if not args.disable_csv:
             df.to_excel(args.output_csv, index=False)
             break
         except PermissionError:
-            input("Please close the Excel file. Press Enter to continue...")
+            print("Please close the Excel file. Retrying in 3 seconds...")
+            time.sleep(3)
     print("Wrote to Excel")
 
 console = Console()
