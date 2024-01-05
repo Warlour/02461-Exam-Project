@@ -11,7 +11,7 @@ finishedprocesses = 0
 
 def worker(process):
     print(f"Worker {process}/{total} on PID {os.getpid()}")
-    runargs = ["py", "main.py", "-b 64", "-l 0.001",  "-e 20", "--disable_scheduler"]
+    runargs = ["py", "main.py", "-b 64", "-l 0.01",  "-e 20", "--disable_scheduler"]
     if (process % (max_processes+1)) == 0 or process == 1:
         subprocess.run(runargs)
     else:

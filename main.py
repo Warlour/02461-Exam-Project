@@ -21,7 +21,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('-b', '--batch_size',    type=int,   default=64,                         help="Batch size | Default: 64")
 parser.add_argument('-l', '--learning_rate', type=float, default=0.01,                       help="Learning rate | Default: 0.01")
 parser.add_argument('-e', '--epochs',        type=int,   default=20,                         help="Number of epochs | Default: 20")
-parser.add_argument('-wd', '--weight_decay', type=float, default=0.0,                        help="Optimizer weight decay | Default: 0.0")
+parser.add_argument('-wd', '--weight_decay', type=float, default=0.005,                        help="Optimizer weight decay | Default: 0.005")
 parser.add_argument('-g', '--gamma',         type=float, default=0.1,                        help="Gamma | Default: 0.1")
 parser.add_argument('-o', '--output_csv',    type=str,   default="data.xlsx",                help="CSV output filename | Default: data.csv")
 parser.add_argument('-c', '--disable_csv',               default=False, action='store_true', help="Disable CSV output | Default: False")
@@ -104,7 +104,8 @@ test_loader = torch.utils.data.DataLoader(dataset = test_dataset,
 
 model = EmotionRecognizer(num_classes).to(device)
 lossfunction = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+#optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 if not args.disable_scheduler:
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=min_lr)
 
