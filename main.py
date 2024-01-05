@@ -197,7 +197,7 @@ with torch.no_grad():
 ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}.{ct.minute}.{ct.second}"
 
 # Save model
-torch.save(model.state_dict(), f"models/{ct_text} b{batch_size}-e{num_epochs}-a{accuracy} {loss_function}-{optimizerfunc}-{schedulername} {note}.pt")
+torch.save(model.state_dict(), f"models/{note}/{ct_text} b{batch_size}-e{num_epochs}-a{accuracy} {loss_function}-{optimizerfunc}-{schedulername} {note}.pt")
 
 if not args.disable_csv:
     ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}:{ct.minute}:{ct.second}"
