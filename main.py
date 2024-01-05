@@ -23,12 +23,13 @@ parser = argparse.ArgumentParser(
 parser.add_argument('-b', '--batch_size',    type=int,   default=64,                         help="Batch size | Default: 64")
 parser.add_argument('-l', '--learning_rate', type=float, default=0.01,                       help="Learning rate | Default: 0.01")
 parser.add_argument('-e', '--epochs',        type=int,   default=20,                         help="Number of epochs | Default: 20")
-parser.add_argument('-w', '--weight_decay', type=float, default=0.005,                      help="Optimizer weight decay | Default: 0.005")
+parser.add_argument('-w', '--weight_decay',  type=float, default=0.005,                      help="Optimizer weight decay | Default: 0.005")
 parser.add_argument('-g', '--gamma',         type=float, default=0.1,                        help="Gamma | Default: 0.1")
 parser.add_argument('-ml', '--min_lr',       type=float, default=0,                          help="Minimum LR | Default: 0")
+parser.add_argument('-m', '--momentum',      type=float, default=0,                          help="Momentum | Default: 0")
 parser.add_argument('-o', '--output_csv',    type=str,   default="data.xlsx",                help="CSV output filename | Default: data.csv")
 parser.add_argument('-c', '--disable_csv',               default=False, action='store_true', help="Disable CSV output | Default: False")
-parser.add_argument('-ds', '--disable_scheduler',        default=False, action='store_true', help="Disable scheduler| Default: False")
+parser.add_argument('-s', '--disable_scheduler',        default=False, action='store_true', help="Disable scheduler| Default: False")
 
 args = parser.parse_args()
 
@@ -41,6 +42,7 @@ num_epochs = args.epochs
 gamma = args.gamma
 weight_decay = args.weight_decay
 min_lr = 0
+momentum = args.momentum
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print("Using", device)
@@ -111,7 +113,7 @@ test_loader = torch.utils.data.DataLoader(dataset = test_dataset,
 model = EmotionRecognizer(num_classes).to(device)
 lossfunction = nn.CrossEntropyLoss()
 #optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=0.9)
+optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
 if not args.disable_scheduler:
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=min_lr)
 
@@ -204,7 +206,7 @@ ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}.{ct.minute}.{ct.second}"
 if not os.path.exists(f"models/{note}"):
     os.makedirs(f"models/{note}")
 # Save model
-torch.save(model.state_dict(), f"models/{note}/{ct_text} b{batch_size}-e{num_epochs}-a{accuracy} {loss_function}-{optimizerfunc}-{schedulername} {note}.pt")
+torch.save(model.state_dict(), f"models/{note}/{ct_text} b{batch_size}-l{last_lr}-e{num_epochs}-w{weight_decay}-g{gamma}-ml{min_lr}-m{momentum} a{accuracy:.1f} {loss_function}-{optimizerfunc}-{schedulername}.pt")
 
 if not args.disable_csv:
     ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}:{ct.minute}:{ct.second}"
