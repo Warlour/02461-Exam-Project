@@ -51,7 +51,7 @@ if not args.disable_csv:
 
     # Information for csv output (change manually)
     loss_function = "CEL"
-    optimizerfunc = "ADAM"
+    optimizerfunc = "SGD"
     schedulername = "None"
     dataset = "FER2013"
     convlayers = 4
