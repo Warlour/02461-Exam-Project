@@ -9,6 +9,7 @@ from math import ceil
 from models import EmotionRecognizer
 from functions import *
 import os, time
+import torchvision, matplotlib
 
 # Table print
 from rich.console import Console
@@ -110,7 +111,7 @@ test_loader = torch.utils.data.DataLoader(dataset = test_dataset,
 model = EmotionRecognizer(num_classes).to(device)
 lossfunction = nn.CrossEntropyLoss()
 #optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=0.9)
 if not args.disable_scheduler:
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=min_lr)
 
@@ -242,3 +243,6 @@ for key, value in new_data.items():
 table.add_row(*data)
 
 console.print(table)
+
+# torchvision.utils.make_grid()
+# matplotlib.pyplot.imshow()
