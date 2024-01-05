@@ -48,6 +48,8 @@ if args.disable_scheduler:
     print("Schedular disabled")
     gamma = 0
 
+new_data = {}
+
 if not args.disable_csv:
     import pandas as pd
 
