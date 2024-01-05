@@ -22,4 +22,4 @@ Brug `-h` argumentet for at få en liste over alle argumenter.
 
 # Model files
 
-The .pt files are to be saved with the following format: `date time batchsize-epochs-accuracy lossfunc-optifunc-scheduler.pt`
+The .pt files are to be saved with the following format: `date time batchsize-epochs-accuracy lossfunc-optifunc-scheduler note.pt`

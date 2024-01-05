@@ -65,7 +65,6 @@ if not args.disable_csv:
         "Batch size":           [batch_size], 
         "Learning rate":        [], 
         "Optimizer function":   [optimizerfunc], 
-        "Scheduler":            [schedulername], 
         "Loss function":        [loss_function], 
         "Avg. Time / Epoch":    [], 
         "Image dimension":      [32], 
@@ -76,12 +75,12 @@ if not args.disable_csv:
         "Device":               [device], 
         "Convolutional layers": [convlayers], 
         "Pools":                [pools], 
-        "Created by":           [user], 
+        "Created by":           [user],
+        "Total training time":  [],
         "Gamma":                [gamma], 
         "Weight decay":         [weight_decay], 
         "Scheduler":            [schedulername], 
-        "Min. LR":              [min_lr],
-        "Note":                 [note]
+        "Min. LR":              [min_lr]
     }
 
 
@@ -198,7 +197,7 @@ with torch.no_grad():
 ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}.{ct.minute}.{ct.second}"
 
 # Save model
-torch.save(model.state_dict(), f"models/{ct_text} b{batch_size}-e{num_epochs}-a{accuracy} {loss_function}-{optimizerfunc}-{schedulername}.pt")
+torch.save(model.state_dict(), f"models/{ct_text} b{batch_size}-e{num_epochs}-a{accuracy} {loss_function}-{optimizerfunc}-{schedulername} {note}.pt")
 
 if not args.disable_csv:
     ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}:{ct.minute}:{ct.second}"
