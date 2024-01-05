@@ -64,7 +64,7 @@ if not args.disable_csv:
     convlayers = 4
     pools = 2
     user = "Stationær"
-    note = "Test 3"
+    note = "Test 4"
 
     new_data = {
         "Date & Time":          [], 
