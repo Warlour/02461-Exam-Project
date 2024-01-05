@@ -11,7 +11,7 @@ current = 0
 
 def worker(process):
     print(f"Worker {process}/{total} on PID {os.getpid()}")
-    runargs = ["py", "main.py", "-b 64", "-l 0.01",  "-e 20", "--weight_decay 0", "-ds", "-o sgd.xlsx"]
+    runargs = ["py", "main.py", "-b 64", "-l 0.01",  "-e 20", "-w 0", "-ds", "-o sgd.xlsx"]
     if ((max_processes+1) % process) == 0 or process == 1:
         subprocess.run(runargs)
     else:
