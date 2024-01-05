@@ -8,6 +8,7 @@ import datetime
 from math import ceil
 from models import EmotionRecognizer
 from functions import *
+import os
 
 # Table print
 from rich.console import Console
@@ -197,6 +198,8 @@ with torch.no_grad():
 
 ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}.{ct.minute}.{ct.second}"
 
+if not os.path.exists(f"models/{note}"):
+    os.makedirs(f"models/{note}")
 # Save model
 torch.save(model.state_dict(), f"models/{note}/{ct_text} b{batch_size}-e{num_epochs}-a{accuracy} {loss_function}-{optimizerfunc}-{schedulername} {note}.pt")
 
