@@ -58,13 +58,13 @@ if not args.disable_csv:
 
     # Information for csv output (change manually)
     loss_function = "CEL"
-    optimizerfunc = "SGD"
-    schedulername = "None"
+    optimizerfunc = "ADAM"
+    schedulername = "CosineAnnealingLR"
     dataset = "FER2013"
     convlayers = 4
     pools = 2
     user = "Stationær"
-    note = "Test 4"
+    note = "Test 18"
 
     new_data = {
         "Date & Time":          [], 
@@ -112,8 +112,8 @@ test_loader = torch.utils.data.DataLoader(dataset = test_dataset,
 
 model = EmotionRecognizer(num_classes).to(device)
 lossfunction = nn.CrossEntropyLoss()
-#optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+#optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
 if not args.disable_scheduler:
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=min_lr)
 
@@ -221,7 +221,7 @@ if not args.disable_csv:
                 df = pd.read_excel(args.output_csv)
             except FileNotFoundError:
                 df = pd.DataFrame(columns=new_data.keys())
-                df.to_excel(args.output_csv, index=False)
+                df.to_excel("Excel/"+args.output_csv, index=False)
                 print("Created new Excel file")
             
             df = pd.concat([df, pd.DataFrame(new_data)], ignore_index=True)
