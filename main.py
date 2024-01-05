@@ -9,49 +9,78 @@ from math import ceil
 from models import EmotionRecognizer
 from functions import *
 
+# Table print
+from rich.console import Console
+from rich.table import Column, Table
+
 parser = argparse.ArgumentParser(
     prog="Emotion Recognizer Model",
     description="Trains and tests the model",
     epilog="Alfred, Ali and Mathias | January 2024, Introduction to Intelligent Systems (02461) Exam Project"
 )
-parser.add_argument('-b', '--batch_size', type=int, nargs=1, default=[64], help="Batch size | Default: 64")
-parser.add_argument('-l', '--learning_rate', type=float, nargs=1, default=[0.01], help="Learning rate | Default: 0.01")
-parser.add_argument('-e', '--epochs', type=int, nargs=1, default=[20], help="Number of epochs | Default: 20")
-parser.add_argument('-ld', '--learning_rate_decrease', default=True, action='store_false', help="Decrease learning rate by gamma | Default: True")
-parser.add_argument('-g', '--gamma', type=float, nargs=1, default=[0.1], help="Gamma | Default: 0.1")
-parser.add_argument('-wd', '--weight_decay', type=float, nargs=1, default=[0], help="Optimizer weight decay | Default: 0")
-parser.add_argument('-c', '--enable_csv', default=True, action='store_false', help="Toggle CSV output | Default: True")
-parser.add_argument('-o', '--output_csv', type=str, nargs=1, default=["data.xlsx"], help="CSV output filename | Default: data.csv")
+parser.add_argument('-b', '--batch_size',    type=int,   default=64,                         help="Batch size | Default: 64")
+parser.add_argument('-l', '--learning_rate', type=float, default=0.01,                       help="Learning rate | Default: 0.01")
+parser.add_argument('-e', '--epochs',        type=int,   default=20,                         help="Number of epochs | Default: 20")
+parser.add_argument('-wd', '--weight_decay', type=float, default=0.0,                        help="Optimizer weight decay | Default: 0.0")
+parser.add_argument('-g', '--gamma',         type=float, default=0.1,                        help="Gamma | Default: 0.1")
+parser.add_argument('-o', '--output_csv',    type=str,   default="data.xlsx",                help="CSV output filename | Default: data.csv")
+parser.add_argument('-c', '--disable_csv',               default=False, action='store_true', help="Disable CSV output | Default: False")
+parser.add_argument('-ds', '--disable_scheduler',        default=False, action='store_true', help="Disable scheduler| Default: False")
+
 args = parser.parse_args()
 
 # Subset of training dataset that is processed together during a single iteration of the training algorithm
-batch_size = args.batch_size[0]
+batch_size = args.batch_size
 # Number of feelings
 num_classes = 7
-learning_rate = args.learning_rate[0]
-num_epochs = args.epochs[0]
-gamma = args.gamma[0]
-weight_decay = args.weight_decay[0]
+learning_rate = args.learning_rate
+num_epochs = args.epochs
+gamma = args.gamma
+weight_decay = args.weight_decay
+min_lr = 0
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print("Using", device)
 
-if not args.learning_rate_decrease:
-    print("Learning rate decrease disabled")
+if args.disable_scheduler:
+    print("Schedular disabled")
     gamma = 0
 
-if args.enable_csv:
+if not args.disable_csv:
     import pandas as pd
 
     # Information for csv output (change manually)
     loss_function = "CEL"
-    optimizerfunc = "SGD"
+    optimizerfunc = "ADAM"
+    schedulername = "None"
     dataset = "FER2013"
     convlayers = 4
     pools = 2
     user = "Stationær"
 
-    new_data = {"Date & Time": [], "Epochs": [num_epochs], "Batch size": [batch_size], "Learning rate": [], "Optimizer function": [optimizerfunc], "Loss function": [loss_function], "Avg. Time / Epoch": [], "Image dimension": [32], "Loss": [], "Min. Loss": [], "Accuracy": [], "Dataset": [dataset], "Device": [device], "Convolutional layers": [convlayers], "Pools": [pools], "Created by": [user], "Gamma": [gamma], "Weight decay": [weight_decay]}
+    new_data = {
+        "Date & Time":          [], 
+        "Epochs":               [num_epochs], 
+        "Batch size":           [batch_size], 
+        "Learning rate":        [], 
+        "Optimizer function":   [optimizerfunc], 
+        "Scheduler":            [schedulername], 
+        "Loss function":        [loss_function], 
+        "Avg. Time / Epoch":    [], 
+        "Image dimension":      [32], 
+        "Loss":                 [], 
+        "Min. Loss":            [], 
+        "Accuracy":             [], 
+        "Dataset":              [dataset], 
+        "Device":               [device], 
+        "Convolutional layers": [convlayers], 
+        "Pools":                [pools], 
+        "Created by":           [user], 
+        "Gamma":                [gamma], 
+        "Weight decay":         [weight_decay], 
+        "Scheduler":            [schedulername], 
+        "Min. LR":              [min_lr]
+    }
 
 
 # Load dataset
@@ -75,7 +104,10 @@ test_loader = torch.utils.data.DataLoader(dataset = test_dataset,
 
 model = EmotionRecognizer(num_classes).to(device)
 lossfunction = nn.CrossEntropyLoss()
-optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=0.9)
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+if not args.disable_scheduler:
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=min_lr)
+
 total_step = len(train_loader)
 
 milestep = [i for i in range(ceil(num_epochs/10), num_epochs + 1, ceil(num_epochs/10))]
@@ -88,9 +120,9 @@ steptimes = []
 # Training
 losses = []
 for epoch in range(num_epochs):
-    if epoch > 0 and epoch+1 in milestep and args.learning_rate_decrease:
-        print("Learning rate decreased")
-        set_lr(optimizer, get_lr(optimizer) * gamma)
+    # if epoch > 0 and epoch+1 in milestep and not args.disable_scheduler:
+    #     print("Learning rate decreased")
+    #     set_lr(optimizer, get_lr(optimizer) * gamma)
     start = perf_counter()
     steptimes = []
     for i, (images, labels) in enumerate(train_loader):
@@ -104,6 +136,8 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        if not args.disable_scheduler:
+            scheduler.step()
 
         stepend = perf_counter()
         steptimes.append(stepend - stepstart)
@@ -132,10 +166,11 @@ for epoch in range(num_epochs):
     measure = end - start
     times.append(measure)
     losses.append(round(loss.item(), 4))
-    print(f"Epoch [{epoch+1}/{num_epochs}] | Loss: {losses[-1]} | Time elapsed: {measure:.2f}s | Learning rate: {get_lr(optimizer):.5f}")
+    last_lr = scheduler.get_last_lr()[0] if not args.disable_scheduler else learning_rate
+    print(f"Epoch [{epoch+1}/{num_epochs}] | Loss: {losses[-1]} | Time elapsed: {measure:.2f}s | Learning rate: {last_lr}")
 
 ct = datetime.datetime.now()
-if args.enable_csv:
+if not args.disable_csv:
     new_data["Loss"] = [losses[-1]]
     new_data["Min. Loss"] = [min(losses)]
 
@@ -154,39 +189,47 @@ with torch.no_grad():
     
     accuracy = round(100*correct/total, 4)
     new_data["Accuracy"] = [accuracy]
-    print(f"{accuracy} % Accurate | Trained on {total_step*batch_size} images")
     avgtimeepoch = round(sum(times)/len(times), 1)
     new_data["Avg. Time / Epoch"] = [avgtimeepoch]
-    print(f"Average epoch time: {avgtimeepoch} seconds")
-    print(f"Batch size: {batch_size} | Learning rate: {learning_rate}")
 
 ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}.{ct.minute}.{ct.second}"
 
 # Save model
-#best_model_state = copy.deepcopy()
-torch.save(model.state_dict(), f"models/{ct_text} b{batch_size}-e{num_epochs}-a{accuracy} {loss_function}-{optimizerfunc}.pt")
+torch.save(model.state_dict(), f"models/{ct_text} b{batch_size}-e{num_epochs}-a{accuracy} {loss_function}-{optimizerfunc}-{schedulername}.pt")
 
-if args.enable_csv:
+if not args.disable_csv:
     ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}:{ct.minute}:{ct.second}"
     new_data['Date & Time'] = [ct_text]
-    new_data['Total training time'] = [sum(times)]
-    new_data['Learning rate'] = [get_lr(optimizer)]
+    new_data['Total training time'] = [round(sum(times), 1)]
+    new_data['Learning rate'] = [last_lr]
 
     while True:
         try:
             # Input
             try:
-                df = pd.read_excel(args.output_csv[0])
+                df = pd.read_excel(args.output_csv)
             except FileNotFoundError:
                 df = pd.DataFrame(columns=new_data.keys())
-                df.to_excel(args.output_csv[0], index=False)
+                df.to_excel(args.output_csv, index=False)
                 print("Created new Excel file")
             
             df = pd.concat([df, pd.DataFrame(new_data)], ignore_index=True)
 
             # Output
-            df.to_excel(args.output_csv[0], index=False)
+            df.to_excel(args.output_csv, index=False)
             break
         except PermissionError:
             input("Please close the Excel file. Press Enter to continue...")
     print("Wrote to Excel")
+
+console = Console()
+table = Table(show_header=True, header_style="bold magenta")
+
+data = []
+for key, value in new_data.items():
+    table.add_column(key)
+    data.append(str(value[0]))
+
+table.add_row(*data)
+
+console.print(table)
