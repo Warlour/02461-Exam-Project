@@ -53,12 +53,12 @@ if not args.disable_csv:
     # Information for csv output (change manually)
     loss_function = "CEL"
     optimizerfunc = "SGD"
-    schedulername = "None"
+    schedulername = "CosineAnnealingLR"
     dataset = "FER2013"
     convlayers = 4
     pools = 2
     user = "Stationær"
-    note = "Test 2"
+    note = "Test 3"
 
     new_data = {
         "Date & Time":          [], 
