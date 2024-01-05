@@ -23,7 +23,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('-b', '--batch_size',    type=int,   default=64,                         help="Batch size | Default: 64")
 parser.add_argument('-l', '--learning_rate', type=float, default=0.01,                       help="Learning rate | Default: 0.01")
 parser.add_argument('-e', '--epochs',        type=int,   default=20,                         help="Number of epochs | Default: 20")
-parser.add_argument('-wd', '--weight_decay', type=float, default=0.005,                      help="Optimizer weight decay | Default: 0.005")
+parser.add_argument('-w', '--weight_decay', type=float, default=0.005,                      help="Optimizer weight decay | Default: 0.005")
 parser.add_argument('-g', '--gamma',         type=float, default=0.1,                        help="Gamma | Default: 0.1")
 parser.add_argument('-ml', '--min_lr',       type=float, default=0,                          help="Minimum LR | Default: 0")
 parser.add_argument('-o', '--output_csv',    type=str,   default="data.xlsx",                help="CSV output filename | Default: data.csv")
