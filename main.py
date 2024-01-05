@@ -193,7 +193,7 @@ with torch.no_grad():
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
     
-    accuracy = round(100*correct/total, 4)
+    accuracy = correct/total
     new_data["Accuracy"] = [accuracy]
     avgtimeepoch = round(sum(times)/len(times), 1)
     new_data["Avg. Time / Epoch"] = [avgtimeepoch]
