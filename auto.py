@@ -16,11 +16,11 @@ def worker(process):
         #"-l 0.001", # Learning rate
         "-e 20", # Epochs
         "-m 0", # Momentum
-        "-w 0", # Weight decay
+        "-w 0.005", # Weight decay
         #"-s", # Disable scheduler
-        "-o test13.xlsx" # Output filename
+        "-o test18.xlsx" # Output filename
     ]
-    if (process % max_processes) == 0 or process == 1:
+    if (process % max_processes) == 0:
         subprocess.run(runargs)
     else:
         subprocess.run(runargs, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
@@ -40,7 +40,7 @@ if __name__ == "__main__":
             if not p.is_alive():
                 processes.remove(p)
                 finished += 1
-                print("Finished process", finished)
+                print("Finished worker", finished)
 
         if not processes:
             break
