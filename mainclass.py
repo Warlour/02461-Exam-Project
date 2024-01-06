@@ -7,6 +7,7 @@ from time import perf_counter
 import datetime
 import pandas as pd
 import time
+import matplotlib.pyplot as plt
 
 # Repeat training
 import multiprocessing, os, subprocess
@@ -277,20 +278,39 @@ class ModelHandler:
                                                 batch_size = self.batch_size,
                                                 shuffle = True)
 
+    def plot_trainvstestloss(self, save_plot: bool = True, display_plot: bool = False) -> None:
+        # Plotting the training and testing losses
+        plt.figure(figsize=(10, 6))
+        plt.plot(range(1, self.epochs + 1), self.train_losses, label='Training Loss')
+        plt.plot(range(1, self.epochs + 1), self.test_losses, label='Testing Loss')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss')
+        plt.title('Training vs Testing Loss')
+        plt.legend()
+        plt.grid(True)
+
+        customname = f'{self.data["Date & Time"][0]} l{self.data["Loss"][0]} a{self.accuracy:.1f} {self.data["Loss function"][0]}-{self.data["Optimizer"][0]}-{self.data["Scheduler"][0]}'
+        if display_plot:
+            plt.show()
+        if save_plot:
+            plt.savefig(self._str_to_filename(f'training_testing_loss_plot {customname}.png'))  # Save the plot as a PNG file
+
+
 
 if __name__ == "__main__":
     modelhandler = ModelHandler(model=EmotionRecognizer, 
                                 batch_size=64, 
                                 start_lr=0.001, 
-                                epochs=1, 
+                                epochs=20, 
                                 gamma=0.9, 
                                 weight_decay=0.0001, 
                                 min_lr=0.0001, 
                                 momentum=0.9,)
     # modelhandler.load()
     modelhandler.train()
-    modelhandler.save_model("models/Test")
+    # modelhandler.save_model("models/Test")
     modelhandler.test()
+    modelhandler.plot_trainvstestloss(display_plot=True)
     # Run ModelHandler.test() before saving excel for most information
-    modelhandler.save_excel("test1.xlsx")
+    # modelhandler.save_excel("test1.xlsx")
     #modelhandler.repeat_train()
