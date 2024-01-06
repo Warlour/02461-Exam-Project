@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
-from customdataset import CustomFER2013Dataset
+from datasets import CustomDataset
 from time import perf_counter
 import argparse
 import datetime
@@ -34,6 +34,7 @@ parser.add_argument(      '--max_lr',         type=float, default=0,            
 parser.add_argument(      '--last_epoch',     type=float, default=-1,                         help="The index of last epoch | Default: -1")
 parser.add_argument('-m', '--momentum',       type=float, default=0,                          help="Momentum | Default: 0")
 parser.add_argument('-o', '--output_csv',     type=str,   default="data.xlsx",                help="CSV output filename | Default: data.csv")
+
 parser.add_argument('-t', '--scheduler_type', type=str,   default="None",                     help="Scheduler type (Case-sensitive) | Default: None")
 parser.add_argument('-c', '--disable_csv',                default=False, action='store_true', help="Disable CSV output | Default: False")
 
@@ -117,9 +118,9 @@ all_transforms = transforms.Compose([transforms.Resize((32, 32)),
                                                           std=[0.5])
                                     ])
 
-train_dataset = CustomFER2013Dataset(root='data/FER2013/train', transform=all_transforms)
+train_dataset = CustomDataset(root='data/FER2013/train', transform=all_transforms)
 
-test_dataset = CustomFER2013Dataset(root='data/FER2013/test', transform=all_transforms)
+test_dataset = CustomDataset(root='data/FER2013/test', transform=all_transforms)
 
 train_loader = torch.utils.data.DataLoader(dataset = train_dataset,
                                            batch_size = batch_size,
@@ -271,8 +272,7 @@ with torch.no_grad():
     #appending accuracy to accuracies lsit for plotting
     #accuracies.append(accuracy)
     new_data["Accuracy"] = [accuracy]
-    avgtimeepoch = round(sum(times)/len(times), 1)
-    new_data["Avg. Time / Epoch"] = [avgtimeepoch]
+    new_data["Avg. Time / Epoch"] = [round(sum(times)/len(times), 1)]
 
     #epoch list for plotting
     #epochs_list.append(epoch + 1)
