@@ -80,8 +80,8 @@ class EmotionRecognizer(nn.Module):
         super(EmotionRecognizer, self).__init__()
         # in_channels: color channels, black and white is 1, rgb is 3
         self.conv_layer1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3)
-        self.conv_layer2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3)
         self.max_pool1 = nn.MaxPool2d(kernel_size = 2, stride = 2)
+        self.conv_layer2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3)
 
         self.conv_layer3 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3)
         self.max_pool2 = nn.MaxPool2d(kernel_size = 2, stride = 2)
@@ -89,14 +89,14 @@ class EmotionRecognizer(nn.Module):
         self.max_pool3 = nn.MaxPool2d(kernel_size = 2, stride = 2)
 
         '''Fully connected layers tilknytter hver neuron til næste neuron'''
-        self.fc1 = nn.Linear(1024, 128) # Fully connected layer
+        self.fc1 = nn.Linear(256, 128) # Fully connected layer
         self.relu1 = nn.ReLU() # Aktiveringsfunktion
         self.fc2 = nn.Linear(128, num_classes)
     
     def forward(self, x):
         out = self.conv_layer1(x)
-        out = self.conv_layer2(out)
         out = self.max_pool1(out)
+        out = self.conv_layer2(out)
 
         out = self.conv_layer3(out)
         out = self.max_pool2(out)
