@@ -11,8 +11,18 @@ current = 0
 
 def worker(process):
     print(f"Worker {process}/{total} on PID {os.getpid()}")
-    runargs = ["py", "main.py", "-b 64", "-l 0.01",  "-e 20", "-w 0", "-ds", "-o sgd.xlsx"]
-    if ((max_processes+1) % process) == 0 or process == 1:
+    runargs = ["py", "main.py", 
+        "--batch_size",         "64", # Batch size
+        # "--learning_rate",    "0.001", # Learning rate
+        "--epochs",             "20", # Epochs
+        "--momentum",           "0", # Momentum
+        "--weight_decay",       "0", # Weight decay
+        "--scheduler_type",     "AliLR", # Scheduler
+        "--gamma",              "0.5", # Gamma
+        "--min_lr",             "0", # Minimum learning rate
+        "--output_csv",         "test23.xlsx" # Output filename
+    ]
+    if (process % max_processes) == 0:
         subprocess.run(runargs)
     else:
         subprocess.run(runargs, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
@@ -21,7 +31,7 @@ if __name__ == "__main__":
     processes = []
 
     while finished < total:
-        if len(processes) < max_processes:
+        if len(processes) < max_processes and current < total:
             current += 1
             p = multiprocessing.Process(target=worker, args=(current,))
             p.start()
@@ -32,7 +42,9 @@ if __name__ == "__main__":
             if not p.is_alive():
                 processes.remove(p)
                 finished += 1
-                print("Finished process", current)
+                print("Finished worker", finished)
 
         if not processes:
             break
+    
+    print("Finished all processes")
