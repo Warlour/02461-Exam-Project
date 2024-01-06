@@ -15,12 +15,13 @@ def worker(process):
         "--batch_size",         "64", # Batch size
         # "--learning_rate",    "0.001", # Learning rate
         "--epochs",             "20", # Epochs
-        "--momentum",           "0", # Momentum
-        "--weight_decay",       "0", # Weight decay
+        "--momentum",           "0.9", # Momentum
+        "--weight_decay",       "0.005", # Weight decay
         "--scheduler_type",     "AliLR", # Scheduler
         "--gamma",              "0.5", # Gamma
         "--min_lr",             "0", # Minimum learning rate
-        "--output_csv",         "test23.xlsx" # Output filename
+        #"--output_csv",         "test22.xlsx" # Output filename
+        "--disable_csv"
     ]
     if (process % max_processes) == 0:
         subprocess.run(runargs)
