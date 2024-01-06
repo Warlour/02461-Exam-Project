@@ -199,6 +199,7 @@ class ModelHandler:
         
         # Data
         self.data["Accuracy"] = [self.accuracy]
+        print("Done testing. Accuracy:", self.accuracy)
 
     def load_model(self, file_path: str) -> None:
         pass
@@ -254,3 +255,4 @@ if __name__ == "__main__":
     # modelhandler.load()
     modelhandler.train()
     modelhandler.save_model("models/Test")
+    modelhandler.test()
