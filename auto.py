@@ -12,15 +12,15 @@ current = 0
 def worker(process):
     print(f"Worker {process}/{total} on PID {os.getpid()}")
     runargs = ["py", "main.py", 
-        "-b 64", # Batch size
-        #"-l 0.001", # Learning rate
-        "-e 20", # Epochs
-        "-m 0", # Momentum
-        "-w 0", # Weight decay
-        "-t AliLR", # Scheduler
-        "-g 0.5", # Gamma
-        "--min_lr 0", # Minimum learning rate
-        "-o test23.xlsx" # Output filename
+        "--batch_size",         "64", # Batch size
+        # "--learning_rate",    "0.001", # Learning rate
+        "--epochs",             "20", # Epochs
+        "--momentum",           "0", # Momentum
+        "--weight_decay",       "0", # Weight decay
+        "--scheduler_type",     "AliLR", # Scheduler
+        "--gamma",              "0.5", # Gamma
+        "--min_lr",             "0", # Minimum learning rate
+        "--output_csv",         "test23.xlsx" # Output filename
     ]
     if (process % max_processes) == 0:
         subprocess.run(runargs)
