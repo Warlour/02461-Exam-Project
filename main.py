@@ -12,6 +12,7 @@ import os, time
 import torchvision, matplotlib
 import pandas as pd
 import sys
+import itertools
 
 # Table print
 from rich.console import Console
@@ -26,11 +27,13 @@ parser.add_argument('-b', '--batch_size',     type=int,   default=64,           
 parser.add_argument('-l', '--learning_rate',  type=float, default=0.01,                       help="Learning rate | Default: 0.01")
 parser.add_argument('-e', '--epochs',         type=int,   default=20,                         help="Number of epochs | Default: 20")
 parser.add_argument('-w', '--weight_decay',   type=float, default=0.005,                      help="Optimizer weight decay | Default: 0.005")
-parser.add_argument('-g', '--gamma',          type=float, default=0.1,                        help="Gamma | Default: 0.1")
-parser.add_argument('-ml', '--min_lr',        type=float, default=0,                          help="Minimum LR | Default: 0")
+parser.add_argument('-g', '--gamma',          type=float, default=0.5,                        help="Gamma | Default: 0.5")
+parser.add_argument(      '--min_lr',         type=float, default=0,                          help="Minimum LR, also called eta_min in some schedulers | Default: 0")
+parser.add_argument(      '--max_lr',         type=float, default=0,                          help="Maximum LR | Default: 0")
+parser.add_argument(      '--last_epoch',     type=float, default=-1,                         help="The index of last epoch | Default: -1")
 parser.add_argument('-m', '--momentum',       type=float, default=0,                          help="Momentum | Default: 0")
 parser.add_argument('-o', '--output_csv',     type=str,   default="data.xlsx",                help="CSV output filename | Default: data.csv")
-parser.add_argument('-t', '--scheduler_type', type=str,   default="None",                     help="Scheduler type | Default: None")
+parser.add_argument('-t', '--scheduler_type', type=str,   default="None",                     help="Scheduler type (Case-sensitive) | Default: None")
 parser.add_argument('-c', '--disable_csv',                default=False, action='store_true', help="Disable CSV output | Default: False")
 
 args = parser.parse_args()
@@ -49,6 +52,7 @@ momentum = args.momentum
 '''
 Scheduler types:
 - None
+- AliLR
 - CosineAnnealingLR
 - StepLR
 - MultiStepLR
@@ -74,7 +78,7 @@ dataset = "FER2013"
 convlayers = 4
 pools = 2
 user = "Stationær"
-note = "Test 18"
+note = "Test 23"
 
 new_data = {
     "Date & Time":          [], 
@@ -123,46 +127,68 @@ model = EmotionRecognizer(num_classes).to(device)
 lossfunction = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 # optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
+
 # Use most suitable parameters provided for scheduler
-if scheduler_type != "None":
+if scheduler_type != "None" and scheduler_type != "AliLR":
     scheduler_class = getattr(torch.optim.lr_scheduler, scheduler_type)
 
-    param_combinations = [
-        {"T_max": num_epochs, "eta_min": min_lr, "gamma": gamma, "momentum": momentum},
-        {"T_max": num_epochs, "eta_min": min_lr, "momentum": momentum},
-        {"T_max": num_epochs, "eta_min": min_lr, "gamma": gamma},
-        {"T_max": num_epochs, "eta_min": min_lr}
-    ]
+    params = {"T_max": num_epochs, "total_steps": num_epochs, "last_epoch": args.last_epoch, "max_lr": 0.01, "eta_min": min_lr, "gamma": gamma, "momentum": momentum}
+    param_keys = list(params.keys())
+    latest_error = None
+    valid_combination_found = False
 
-    for params in param_combinations:
-        try:
-            scheduler = scheduler_class(optimizer, **params)
-            print("Using parameters:", params)
-            break
-        except TypeError:
-            print("Parameters:", params, f"not supported for {scheduler_type}. Trying next combination...")
-            continue
-    else: # No break
-        print("Scheduler type, gamma, and momentum options not supported. Exiting...")
+    try:
+        # Go over all combinations of parameters and use the first one that works
+        for r in range(len(param_keys), 0, -1):
+            for subset in itertools.combinations(param_keys, r):
+                subset_params = {key: params[key] for key in subset}
+                try:
+                    scheduler = scheduler_class(optimizer, **subset_params)
+                    print("Using parameters:", subset_params)
+                    valid_combination_found = True
+                    break
+                except TypeError as e:
+                    # print("Parameters:", subset_params, f"not supported for {scheduler_type}. Trying next combination...")
+                    latest_error = e
+                    continue
+            if valid_combination_found:
+                break
+            else: # No break
+                continue
+        else: # No break
+            print("Tried using all combinations of parameters from:")
+            print(params)
+            print("Please use another scheduler or provide values for some of the parameters. Exiting...")
+            sys.exit(0)
+    except KeyError as e:
+        print("Some of your parameters didn't fit together or are missing, please change your parameters. Exiting...")
+        print(e)
         sys.exit(0)
+# Ali custom scheduler
+elif scheduler_type == "AliLR":
+    milestep = [i for i in range(ceil(num_epochs/10), num_epochs + 1, ceil(num_epochs/10))]
 
+# Variables
 total_step = len(train_loader)
-
-milestep = [i for i in range(ceil(num_epochs/10), num_epochs + 1, ceil(num_epochs/10))]
-
 times = []
-
 N = 30  # Number of step times to display and consider in the moving average
 steptimes = []
 
 # Training
 losses = []
 for epoch in range(num_epochs):
-    # if epoch > 0 and epoch+1 in milestep and scheduler_type != "None":
-    #     print("Learning rate decreased")
-    #     set_lr(optimizer, get_lr(optimizer) * gamma)
     start = perf_counter()
     steptimes = []
+
+    # Ali custom scheduler per epoch or if above 10 epochs, every 10th epoch
+    if scheduler_type == "AliLR":
+        if epoch+1 in milestep:
+            print("Learning rate decreased for this epoch.")
+            if get_lr(optimizer)*gamma > min_lr:
+                set_lr(optimizer, get_lr(optimizer)*gamma)
+            else:
+                set_lr(optimizer, min_lr)
+
     for i, (images, labels) in enumerate(train_loader):
         stepstart = perf_counter()
         images = images.to(device)
@@ -174,8 +200,14 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        if scheduler_type != "None":
-            scheduler.step()
+
+        # Scheduler step
+        if scheduler_type != "None" and scheduler_type != "AliLR":
+            try:
+                scheduler.step()
+            except ValueError:
+                print("ValueError: Trying to step scheduler beyond the last epoch. Exiting...")
+                sys.exit(0)
 
         stepend = perf_counter()
         steptimes.append(stepend - stepstart)
@@ -197,14 +229,20 @@ for epoch in range(num_epochs):
             total_eta = avg_steptime * remaining_steps_total * drift_factor
 
             print(f" {i}/{total_step} | ETA: {eta:.0f}s | Total ETA: {total_eta:.0f}s         ", end="\r")
-        
 
     end = perf_counter()
 
     measure = end - start
     times.append(measure)
     losses.append(round(loss.item(), 4))
-    last_lr = scheduler.get_last_lr()[0] if scheduler_type != "None" else learning_rate
+
+    if scheduler_type != "None" and scheduler_type != "AliLR":
+        last_lr = scheduler.get_last_lr()[0]
+    elif scheduler_type == "AliLR":
+        last_lr = get_lr(optimizer)
+    else:
+        last_lr = learning_rate
+
     print(f"Epoch [{epoch+1}/{num_epochs}] | Loss: {losses[-1]} | Time elapsed: {measure:.2f}s | Learning rate: {last_lr}")
 
 ct = datetime.datetime.now()

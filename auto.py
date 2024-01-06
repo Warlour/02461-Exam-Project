@@ -16,9 +16,11 @@ def worker(process):
         #"-l 0.001", # Learning rate
         "-e 20", # Epochs
         "-m 0", # Momentum
-        "-w 0.005", # Weight decay
-        #"-s", # Disable scheduler
-        "-o test18.xlsx" # Output filename
+        "-w 0", # Weight decay
+        "-t AliLR", # Scheduler
+        "-g 0.5", # Gamma
+        "--min_lr 0", # Minimum learning rate
+        "-o test23.xlsx" # Output filename
     ]
     if (process % max_processes) == 0:
         subprocess.run(runargs)
