@@ -10,6 +10,7 @@ from models import EmotionRecognizer
 from functions import *
 import os, time
 import torchvision, matplotlib
+import pandas as pd
 
 # Table print
 from rich.console import Console
@@ -20,16 +21,16 @@ parser = argparse.ArgumentParser(
     description="Trains and tests the model",
     epilog="Alfred, Ali and Mathias | January 2024, Introduction to Intelligent Systems (02461) Exam Project"
 )
-parser.add_argument('-b', '--batch_size',    type=int,   default=64,                         help="Batch size | Default: 64")
-parser.add_argument('-l', '--learning_rate', type=float, default=0.01,                       help="Learning rate | Default: 0.01")
-parser.add_argument('-e', '--epochs',        type=int,   default=20,                         help="Number of epochs | Default: 20")
-parser.add_argument('-w', '--weight_decay',  type=float, default=0.005,                      help="Optimizer weight decay | Default: 0.005")
-parser.add_argument('-g', '--gamma',         type=float, default=0.1,                        help="Gamma | Default: 0.1")
-parser.add_argument('-ml', '--min_lr',       type=float, default=0,                          help="Minimum LR | Default: 0")
-parser.add_argument('-m', '--momentum',      type=float, default=0,                          help="Momentum | Default: 0")
-parser.add_argument('-o', '--output_csv',    type=str,   default="data.xlsx",                help="CSV output filename | Default: data.csv")
-parser.add_argument('-c', '--disable_csv',               default=False, action='store_true', help="Disable CSV output | Default: False")
-parser.add_argument('-s', '--disable_scheduler',        default=False, action='store_true', help="Disable scheduler| Default: False")
+parser.add_argument('-b', '--batch_size',     type=int,   default=64,                         help="Batch size | Default: 64")
+parser.add_argument('-l', '--learning_rate',  type=float, default=0.01,                       help="Learning rate | Default: 0.01")
+parser.add_argument('-e', '--epochs',         type=int,   default=20,                         help="Number of epochs | Default: 20")
+parser.add_argument('-w', '--weight_decay',   type=float, default=0.005,                      help="Optimizer weight decay | Default: 0.005")
+parser.add_argument('-g', '--gamma',          type=float, default=0.1,                        help="Gamma | Default: 0.1")
+parser.add_argument('-ml', '--min_lr',        type=float, default=0,                          help="Minimum LR | Default: 0")
+parser.add_argument('-m', '--momentum',       type=float, default=0,                          help="Momentum | Default: 0")
+parser.add_argument('-o', '--output_csv',     type=str,   default="data.xlsx",                help="CSV output filename | Default: data.csv")
+parser.add_argument('-t', '--scheduler_type', type=str,   default="None",                     help="Scheduler type | Default: None")
+parser.add_argument('-c', '--disable_csv',                default=False, action='store_true', help="Disable CSV output | Default: False")
 
 args = parser.parse_args()
 
@@ -44,52 +45,59 @@ weight_decay = args.weight_decay
 min_lr = 0
 momentum = args.momentum
 
+'''
+Scheduler types:
+- None
+- CosineAnnealingLR
+- StepLR
+- MultiStepLR
+- MultiplicativeLR
+- ExponentialLR
+- CyclicLR
+- OneCycleLR
+- CosineAnnealingWarmRestarts
+'''
+scheduler_type = args.scheduler_type
+
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print("Using", device)
 
-if args.disable_scheduler:
-    print("Schedular disabled")
+if scheduler_type == "None":
+    print("Scheduler disabled")
     gamma = 0
 
-new_data = {}
+# Information for csv output (change manually)
+loss_function = "CEL"
+optimizerfunc = "ADAM"
+dataset = "FER2013"
+convlayers = 4
+pools = 2
+user = "Stationær"
+note = "Test 18"
 
-if not args.disable_csv:
-    import pandas as pd
-
-    # Information for csv output (change manually)
-    loss_function = "CEL"
-    optimizerfunc = "ADAM"
-    schedulername = "CosineAnnealingLR"
-    dataset = "FER2013"
-    convlayers = 4
-    pools = 2
-    user = "Stationær"
-    note = "Test 18"
-
-    new_data = {
-        "Date & Time":          [], 
-        "Epochs":               [num_epochs], 
-        "Batch size":           [batch_size], 
-        "Learning rate":        [], 
-        "Optimizer function":   [optimizerfunc], 
-        "Loss function":        [loss_function], 
-        "Avg. Time / Epoch":    [], 
-        "Image dimension":      [32], 
-        "Loss":                 [], 
-        "Min. Loss":            [], 
-        "Accuracy":             [], 
-        "Dataset":              [dataset], 
-        "Device":               [device], 
-        "Convolutional layers": [convlayers], 
-        "Pools":                [pools], 
-        "Created by":           [user],
-        "Total training time":  [],
-        "Gamma":                [gamma], 
-        "Weight decay":         [weight_decay], 
-        "Scheduler":            [schedulername], 
-        "Min. LR":              [min_lr]
-    }
-
+new_data = {
+    "Date & Time":          [], 
+    "Epochs":               [num_epochs], 
+    "Batch size":           [batch_size], 
+    "Learning rate":        [], 
+    "Optimizer function":   [optimizerfunc], 
+    "Loss function":        [loss_function], 
+    "Avg. Time / Epoch":    [], 
+    "Image dimension":      [32], 
+    "Loss":                 [], 
+    "Min. Loss":            [], 
+    "Accuracy":             [], 
+    "Dataset":              [dataset], 
+    "Device":               [device], 
+    "Convolutional layers": [convlayers], 
+    "Pools":                [pools], 
+    "Created by":           [user],
+    "Total training time":  [],
+    "Gamma":                [gamma], 
+    "Weight decay":         [weight_decay], 
+    "Scheduler":            [scheduler_type], 
+    "Min. LR":              [min_lr]
+}
 
 # Load dataset
 all_transforms = transforms.Compose([transforms.Resize((32, 32)),
@@ -114,8 +122,18 @@ model = EmotionRecognizer(num_classes).to(device)
 lossfunction = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 #optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
-if not args.disable_scheduler:
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=min_lr)
+if scheduler_type != "None":
+    scheduler_class = getattr(torch.optim.lr_scheduler, scheduler_type)
+    if gamma == 0 and momentum == 0:
+        scheduler = scheduler_class(optimizer, T_max=num_epochs, eta_min=min_lr)
+    elif gamma == 0:
+        scheduler = scheduler_class(optimizer, T_max=num_epochs, eta_min=min_lr, momentum=momentum)
+    elif gamma != 0 and momentum == 0:
+        scheduler = scheduler_class(optimizer, T_max=num_epochs, eta_min=min_lr, gamma=gamma)
+    elif gamma != 0 and momentum != 0:
+        scheduler = scheduler_class(optimizer, T_max=num_epochs, eta_min=min_lr, gamma=gamma, momentum=momentum)
+
+    
 
 total_step = len(train_loader)
 
@@ -129,7 +147,7 @@ steptimes = []
 # Training
 losses = []
 for epoch in range(num_epochs):
-    # if epoch > 0 and epoch+1 in milestep and not args.disable_scheduler:
+    # if epoch > 0 and epoch+1 in milestep and scheduler_type != "None":
     #     print("Learning rate decreased")
     #     set_lr(optimizer, get_lr(optimizer) * gamma)
     start = perf_counter()
@@ -145,7 +163,7 @@ for epoch in range(num_epochs):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        if not args.disable_scheduler:
+        if scheduler_type != "None":
             scheduler.step()
 
         stepend = perf_counter()
@@ -175,13 +193,12 @@ for epoch in range(num_epochs):
     measure = end - start
     times.append(measure)
     losses.append(round(loss.item(), 4))
-    last_lr = scheduler.get_last_lr()[0] if not args.disable_scheduler else learning_rate
+    last_lr = scheduler.get_last_lr()[0] if scheduler_type != "None" else learning_rate
     print(f"Epoch [{epoch+1}/{num_epochs}] | Loss: {losses[-1]} | Time elapsed: {measure:.2f}s | Learning rate: {last_lr}")
 
 ct = datetime.datetime.now()
-if not args.disable_csv:
-    new_data["Loss"] = [losses[-1]]
-    new_data["Min. Loss"] = [min(losses)]
+new_data["Loss"] = [losses[-1]]
+new_data["Min. Loss"] = [min(losses)]
 
 # Testing
 print("Testing...", end="\r")
@@ -206,14 +223,16 @@ ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}.{ct.minute}.{ct.second}"
 if not os.path.exists(f"models/{note}"):
     os.makedirs(f"models/{note}")
 # Save model
-torch.save(model.state_dict(), f"models/{note}/{ct_text} b{batch_size}-l{last_lr}-e{num_epochs}-w{weight_decay}-g{gamma}-ml{min_lr}-m{momentum} a{accuracy:.1f} {loss_function}-{optimizerfunc}-{schedulername}.pt")
+torch.save(model.state_dict(), f"models/{note}/{ct_text} b{batch_size}-l{last_lr}-e{num_epochs}-w{weight_decay}-g{gamma}-ml{min_lr}-m{momentum} a{accuracy:.1f} {loss_function}-{optimizerfunc}-{scheduler_type}.pt")
 
+# Testing information
+ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}:{ct.minute}:{ct.second}"
+new_data['Date & Time'] = [ct_text]
+new_data['Total training time'] = [round(sum(times), 1)]
+new_data['Learning rate'] = [last_lr]
+
+# Write to Excel
 if not args.disable_csv:
-    ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}:{ct.minute}:{ct.second}"
-    new_data['Date & Time'] = [ct_text]
-    new_data['Total training time'] = [round(sum(times), 1)]
-    new_data['Learning rate'] = [last_lr]
-
     while True:
         try:
             # Input
@@ -234,6 +253,7 @@ if not args.disable_csv:
             time.sleep(3)
     print("Wrote to Excel")
 
+# Pretty print table
 console = Console()
 table = Table(show_header=True, header_style="bold magenta")
 
