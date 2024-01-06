@@ -5,6 +5,11 @@ import torchvision.transforms as transforms
 import math
 from time import perf_counter
 import datetime
+import pandas as pd
+import time
+
+# Repeat training
+import multiprocessing, os, subprocess
 
 from models import *
 from datasets import *
@@ -22,7 +27,6 @@ class ModelHandler:
         self.weight_decay = weight_decay
         self.min_lr = min_lr
         self.momentum = momentum
-        self.output_filename = "test1.xlsx"
 
         # To be changed data
         self.accuracy = 0
@@ -179,14 +183,14 @@ class ModelHandler:
             self.data["Avg. Time / Epoch"] = [round(sum(self.times)/len(self.times), 1)]
             self.data["End LR"] = [self.latest_lr]
             self.data["Loss"] = [self.losses[-1]]
-            self.data["Min. Loss"] = [min(self.losses)]
+            self.data["Min. loss"] = [min(self.losses)]
         except KeyboardInterrupt:
             print("Training interrupted, some data may be incomplete.")
 
     def test(self) -> None:
-        correct = 0
-        total = 0
         with torch.no_grad():
+            correct = 0
+            total = 0
             for images, labels in self.test_loader:
                 images = images.to(self.device)
                 labels = labels.to(self.device)
@@ -195,11 +199,25 @@ class ModelHandler:
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
 
-        self.accuracy = correct/total
+            self.accuracy = correct/total
         
         # Data
         self.data["Accuracy"] = [self.accuracy]
         print("Done testing. Accuracy:", self.accuracy)
+
+    def _worker(self, process: int, total: int, test: bool, save: bool, model_path: str, excel_path: str) -> None:
+        print(f"Worker {process}/{total} on PID {os.getpid()}")
+        self.train()
+        if test:
+            self.test()
+        if save:
+            self.save_model(f"models/{model_path}")
+            self.save_excel(f"Excel/{process}_{excel_path}.xlsx")
+
+    def repeat_train(self, ) -> None:
+        
+
+        print("Finished all processes")
 
     def load_model(self, file_path: str) -> None:
         pass
@@ -220,8 +238,25 @@ class ModelHandler:
         torch.save(self.model.state_dict(), path+f"{self._str_to_filename(customname)}.pt")
         print("Saved model to", path)
 
-    def save_excel(self) -> None:
-        pass
+    def save_excel(self, path) -> None:
+        while True:
+            try:
+                try:
+                    df = pd.read_excel("Excel/"+path)
+                except FileNotFoundError:
+                    df = pd.DataFrame(columns=self.data.keys())
+                    df.to_excel("Excel/"+path, index=False)
+                    print("Created new excel file")
+                
+                df = pd.concat([df, pd.DataFrame(self.data)], ignore_index=True)
+
+                # Output to excel
+                df.to_excel("Excel/"+path, index=False)
+                break
+            except PermissionError:
+                print("Please close the excel file. Retrying in 2 seconds...")
+                time.sleep(2)
+        print("Wrote to Excel")
 
     def _load_data(self, root) -> None:
         all_transforms = transforms.Compose([transforms.Resize((32, 32)),
@@ -256,3 +291,6 @@ if __name__ == "__main__":
     modelhandler.train()
     modelhandler.save_model("models/Test")
     modelhandler.test()
+    # Run ModelHandler.test() before saving excel for most information
+    modelhandler.save_excel("test1.xlsx")
+    #modelhandler.repeat_train()
