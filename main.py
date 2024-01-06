@@ -11,6 +11,7 @@ from functions import *
 import os, time
 import torchvision, matplotlib
 import pandas as pd
+import sys
 
 # Table print
 from rich.console import Console
@@ -121,19 +122,29 @@ test_loader = torch.utils.data.DataLoader(dataset = test_dataset,
 model = EmotionRecognizer(num_classes).to(device)
 lossfunction = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-#optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
+# optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
+# Use most suitable parameters provided for scheduler
 if scheduler_type != "None":
     scheduler_class = getattr(torch.optim.lr_scheduler, scheduler_type)
-    if gamma == 0 and momentum == 0:
-        scheduler = scheduler_class(optimizer, T_max=num_epochs, eta_min=min_lr)
-    elif gamma == 0:
-        scheduler = scheduler_class(optimizer, T_max=num_epochs, eta_min=min_lr, momentum=momentum)
-    elif gamma != 0 and momentum == 0:
-        scheduler = scheduler_class(optimizer, T_max=num_epochs, eta_min=min_lr, gamma=gamma)
-    elif gamma != 0 and momentum != 0:
-        scheduler = scheduler_class(optimizer, T_max=num_epochs, eta_min=min_lr, gamma=gamma, momentum=momentum)
 
-    
+    param_combinations = [
+        {"T_max": num_epochs, "eta_min": min_lr, "gamma": gamma, "momentum": momentum},
+        {"T_max": num_epochs, "eta_min": min_lr, "momentum": momentum},
+        {"T_max": num_epochs, "eta_min": min_lr, "gamma": gamma},
+        {"T_max": num_epochs, "eta_min": min_lr}
+    ]
+
+    for params in param_combinations:
+        try:
+            scheduler = scheduler_class(optimizer, **params)
+            print("Using parameters:", params)
+            break
+        except TypeError:
+            print("Parameters:", params, f"not supported for {scheduler_type}. Trying next combination...")
+            continue
+    else: # No break
+        print("Scheduler type, gamma, and momentum options not supported. Exiting...")
+        sys.exit(0)
 
 total_step = len(train_loader)
 
