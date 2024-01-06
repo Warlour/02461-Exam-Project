@@ -13,6 +13,7 @@ import torchvision, matplotlib
 import pandas as pd
 import sys
 import itertools
+#from plot_results import plot_results
 
 # Table print
 from rich.console import Console
@@ -77,8 +78,8 @@ optimizerfunc = "ADAM"
 dataset = "FER2013"
 convlayers = 4
 pools = 2
-user = "Stationær"
-note = "Test 23"
+user = "Alfred"
+note = "Test for plotting"
 
 new_data = {
     "Date & Time":          [], 
@@ -174,8 +175,17 @@ times = []
 N = 30  # Number of step times to display and consider in the moving average
 steptimes = []
 
+# For plotting results
+#train_losses = []
+#test_losses = []
+#accuracies = []
+#epochs_list = []
+
 # Training
 losses = []
+train_losses = []
+test_losses = []
+
 for epoch in range(num_epochs):
     start = perf_counter()
     steptimes = []
@@ -236,6 +246,22 @@ for epoch in range(num_epochs):
     times.append(measure)
     losses.append(round(loss.item(), 4))
 
+    # training error/loss
+    train_losses.append(losses[-1])
+
+    # Testing phase
+    model.eval()  # Set the model to evaluation mode
+    test_loss = 0
+    with torch.no_grad():
+        for images, labels in test_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+            outputs = model(images)
+            test_loss += lossfunction(outputs, labels).item()
+    
+    test_losses.append(test_loss / len(test_loader))  # Record the testing loss
+    model.train()
+
     if scheduler_type != "None" and scheduler_type != "AliLR":
         last_lr = scheduler.get_last_lr()[0]
     elif scheduler_type == "AliLR":
@@ -251,6 +277,8 @@ new_data["Min. Loss"] = [min(losses)]
 
 # Testing
 print("Testing...", end="\r")
+#initializing test_loss
+#test_loss = 0
 with torch.no_grad():
     correct = 0
     total = 0
@@ -262,10 +290,22 @@ with torch.no_grad():
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
     
+    #test loss/error
+    #test_loss /= len(test_loader.dataset)
+    #test_losses.append(test_loss)
+
     accuracy = correct/total
+    #appending accuracy to accuracies lsit for plotting
+    #accuracies.append(accuracy)
     new_data["Accuracy"] = [accuracy]
     avgtimeepoch = round(sum(times)/len(times), 1)
     new_data["Avg. Time / Epoch"] = [avgtimeepoch]
+
+    #epoch list for plotting
+    #epochs_list.append(epoch + 1)
+
+#plot training error vs test error
+#plot_results(epoch + 1, train_losses, test_losses, accuracies)
 
 ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}.{ct.minute}.{ct.second}"
 
@@ -317,3 +357,17 @@ console.print(table)
 
 # torchvision.utils.make_grid()
 # matplotlib.pyplot.imshow()
+
+import matplotlib.pyplot as plt
+
+# Plotting the training and testing losses
+plt.figure(figsize=(10, 6))
+plt.plot(range(1, num_epochs + 1), train_losses, label='Training Loss')
+plt.plot(range(1, num_epochs + 1), test_losses, label='Testing Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.title('Training vs Testing Loss')
+plt.legend()
+plt.grid(True)
+plt.savefig('training_testing_loss_plot.png')  # Save the plot as a PNG file
+plt.show()
