@@ -37,6 +37,11 @@ parser.add_argument('-o', '--output_csv',     type=str,   default="data.xlsx",  
 parser.add_argument('-t', '--scheduler_type', type=str,   default="None",                     help="Scheduler type (Case-sensitive) | Default: None")
 parser.add_argument('-c', '--disable_csv',                default=False, action='store_true', help="Disable CSV output | Default: False")
 
+# Testing
+parser.add_argument(      '--note',           type=str,   default="",                         help="Note")
+parser.add_argument(      '--optimizerfunc',  type=str,   default="",                         help="Optimizer function to be saved in Excel file")
+parser.add_argument(      '--loss_function',  type=str,   default="CEL",                      help="Loss function to be saved in Excel file")
+
 args = parser.parse_args()
 
 # Subset of training dataset that is processed together during a single iteration of the training algorithm
@@ -73,13 +78,13 @@ if scheduler_type == "None":
     gamma = 0
 
 # Information for csv output (change manually)
-loss_function = "CEL"
-optimizerfunc = "ADAM"
+loss_function = args.loss_function
+optimizerfunc = args.optimizerfunc
 dataset = "FER2013"
 convlayers = 4
 pools = 2
-user = "Alfred"
-note = "Test for plotting"
+user = "Stationær"
+note = args.note
 
 new_data = {
     "Date & Time":          [], 
@@ -131,40 +136,8 @@ optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=
 
 # Use most suitable parameters provided for scheduler
 if scheduler_type != "None" and scheduler_type != "AliLR":
-    scheduler_class = getattr(torch.optim.lr_scheduler, scheduler_type)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs, eta_min=min_lr)
 
-    params = {"T_max": num_epochs, "total_steps": num_epochs, "last_epoch": args.last_epoch, "max_lr": 0.01, "eta_min": min_lr, "gamma": gamma, "momentum": momentum}
-    param_keys = list(params.keys())
-    latest_error = None
-    valid_combination_found = False
-
-    try:
-        # Go over all combinations of parameters and use the first one that works
-        for r in range(len(param_keys), 0, -1):
-            for subset in itertools.combinations(param_keys, r):
-                subset_params = {key: params[key] for key in subset}
-                try:
-                    scheduler = scheduler_class(optimizer, **subset_params)
-                    print("Using parameters:", subset_params)
-                    valid_combination_found = True
-                    break
-                except TypeError as e:
-                    # print("Parameters:", subset_params, f"not supported for {scheduler_type}. Trying next combination...")
-                    latest_error = e
-                    continue
-            if valid_combination_found:
-                break
-            else: # No break
-                continue
-        else: # No break
-            print("Tried using all combinations of parameters from:")
-            print(params)
-            print("Please use another scheduler or provide values for some of the parameters. Exiting...")
-            sys.exit(0)
-    except KeyError as e:
-        print("Some of your parameters didn't fit together or are missing, please change your parameters. Exiting...")
-        print(e)
-        sys.exit(0)
 # Ali custom scheduler
 elif scheduler_type == "AliLR":
     milestep = [i for i in range(ceil(num_epochs/10), num_epochs + 1, ceil(num_epochs/10))]
@@ -312,7 +285,8 @@ ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}.{ct.minute}.{ct.second}"
 if not os.path.exists(f"models/{note}"):
     os.makedirs(f"models/{note}")
 # Save model
-torch.save(model.state_dict(), f"models/{note}/{ct_text} b{batch_size}-l{last_lr}-e{num_epochs}-w{weight_decay}-g{gamma}-ml{min_lr}-m{momentum} a{accuracy:.1f} {loss_function}-{optimizerfunc}-{scheduler_type}.pt")
+customname = f"{ct_text} b{batch_size}-l{last_lr}-e{num_epochs}-w{weight_decay}-g{gamma}-ml{min_lr}-m{momentum} a{accuracy:.1f} {loss_function}-{optimizerfunc}-{scheduler_type}"
+torch.save(model.state_dict(), f"models/{note}/{customname}.pt")
 
 # Testing information
 ct_text = f"{ct.year}-{ct.month}-{ct.day} {ct.hour}:{ct.minute}:{ct.second}"
@@ -369,5 +343,5 @@ plt.ylabel('Loss')
 plt.title('Training vs Testing Loss')
 plt.legend()
 plt.grid(True)
-plt.savefig('training_testing_loss_plot.png')  # Save the plot as a PNG file
-plt.show()
+plt.savefig(f'training_testing_loss_plot {customname}.png')  # Save the plot as a PNG file
+# plt.show()
