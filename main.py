@@ -282,7 +282,7 @@ print("Testing...", end="\r")
 with torch.no_grad():
     correct = 0
     total = 0
-    for images, labels in train_loader:
+    for images, labels in test_loader:
         images = images.to(device)
         labels = labels.to(device)
         outputs = model(images)
