@@ -68,8 +68,8 @@ class ModelHandler:
 
         # Functions
         self.lossfunction = nn.CrossEntropyLoss()
-        #self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
+        #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=epochs, eta_min=min_lr)
         # self.scheduler = "AliLR"
 
@@ -217,13 +217,35 @@ class ModelHandler:
             self.save_model(f"models/{model_path}")
             self.save_excel(f"Excel/{process}_{excel_path}.xlsx")
 
-    def repeat_train(self, ) -> None:
-        
+    def repeat_train(self, total: int, max_processes: int, delay: int, test: bool, save: bool, model_path: str, excel_path: str) -> None:
+        processes = []
+        finished, current = 0
+
+        while finished < total:
+            if len(processes) < max_processes and current < total:
+                current += 1
+                p = multiprocessing.Process(target=self._worker, args=(current, total, test, save, model_path, excel_path))
+                p.start()
+                processes.append(p)
+                time.sleep(delay)  # Add delay before starting next process
+
+            for p in processes:
+                if not p.is_alive():
+                    processes.remove(p)
+                    finished += 1
+                    print("Finished worker", finished)
+
+            if not processes:
+                break
 
         print("Finished all processes")
 
     def load_model(self, file_path: str) -> None:
-        pass
+        checkpoint = torch.load(file_path)
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+
+        # for param in self.model.parameters():
+        #    param.requires_grad = False
 
     def _str_to_filename(self, string: str):
         invalid_chars = ['\\', ':', '?', '<', '>', '|']
@@ -268,9 +290,10 @@ class ModelHandler:
                                                           std=[0.5])
                                     ])
 
-        self.train_dataset = CustomDataset(root=f'data/{root}/train', transform=all_transforms)
+        classes = ["angry", "disgust", "fear", "happy", "neutral", "sad", "surprise"]
+        self.train_dataset = SubfoldersDataset(root=f'data/{root}/train', filetype="jpg", classes=classes, transform=all_transforms)
 
-        self.test_dataset = CustomDataset(root=f'data/{root}/test', transform=all_transforms)
+        self.test_dataset = SubfoldersDataset(root=f'data/{root}/test', filetype="jpg", classes=classes, transform=all_transforms)
 
         self.train_loader = torch.utils.data.DataLoader(dataset = self.train_dataset,
                                                 batch_size = self.batch_size,
@@ -308,16 +331,17 @@ if __name__ == "__main__":
         start_lr =     0.01,
         epochs =       20,
         gamma =        0.5,
-        weight_decay = 0.005,
+        weight_decay = 0,
         min_lr =       0,
-        momentum =     0
+        momentum =     0.9
     )
     # modelhandler.load()
     modelhandler.train()
-    modelhandler.save_model("models/Test")
-    modelhandler.test(test_name="Test 2")
+    test = "Test 17"
+    modelhandler.save_model(f"models/{test}")
+    modelhandler.test(test_name=test)
     modelhandler.plot_trainvstestloss(display_plot=False)
-    modelhandler.save_excel("test2.xlsx")
+    modelhandler.save_excel(f"{test}.xlsx")
     # Run ModelHandler.test() before saving excel for most information
     # modelhandler.save_excel("test1.xlsx")
     #modelhandler.repeat_train()

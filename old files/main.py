@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
-from datasets import CustomDataset
+from datasets import SubfoldersDataset
 from time import perf_counter
 import argparse
 import datetime

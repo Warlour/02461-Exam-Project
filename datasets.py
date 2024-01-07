@@ -3,14 +3,15 @@ from torchvision.datasets import VisionDataset
 from torchvision.io import read_image
 from torchvision import transforms
 
-class CustomDataset(VisionDataset):
-    def __init__(self, root, transform=None, target_transform=None):
-        super(CustomDataset, self).__init__(root, transform=transform, target_transform=target_transform)
+class SubfoldersDataset(VisionDataset):
+    def __init__(self, root, filetype: str, classes: list, transform=None, target_transform=None):
+        super(SubfoldersDataset, self).__init__(root, transform=transform, target_transform=target_transform)
         self.root = root
         self.transform = transform
         self.target_transform = target_transform
-        self.classes = ["angry", "disgust", "fear", "happy", "neutral", "sad", "surprise"]
+        self.classes = classes
         self.class_to_idx = {cls: idx for idx, cls in enumerate(self.classes)}
+        self.filetype = filetype
         self.images, self.labels = self._load_dataset()
 
     def _load_dataset(self):
@@ -20,7 +21,7 @@ class CustomDataset(VisionDataset):
         for emotion in self.classes:
             emotion_folder = os.path.join(self.root, emotion)
             for filename in os.listdir(emotion_folder):
-                if filename.endswith(".jpg"):
+                if filename.endswith(f".{self.filetype}"):
                     img_path = os.path.join(emotion_folder, filename)
                     images.append(img_path)
                     labels.append(self.class_to_idx[emotion])

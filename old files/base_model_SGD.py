@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torchvision
 import torchvision.transforms as transforms
-from datasets import CustomDataset
+from datasets import SubfoldersDataset
 from time import perf_counter
 import argparse
 import datetime
@@ -63,9 +63,9 @@ all_transforms = transforms.Compose([transforms.Resize((32, 32)),
                                                           std=[0.5])
                                     ])
 
-train_dataset = CustomDataset(root='data/FER2013/train', transform=all_transforms)
+train_dataset = SubfoldersDataset(root='data/FER2013/train', transform=all_transforms)
 
-test_dataset = CustomDataset(root='data/FER2013/test', transform=all_transforms)
+test_dataset = SubfoldersDataset(root='data/FER2013/test', transform=all_transforms)
 
 train_loader = torch.utils.data.DataLoader(dataset = train_dataset,
                                            batch_size = batch_size,
