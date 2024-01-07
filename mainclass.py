@@ -30,7 +30,7 @@ class ModelHandler:
         self.momentum = momentum
 
         # To be changed data
-        self.accuracy = 0
+        self.accuracy = -1
 
         '''MODEL'''
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -328,22 +328,16 @@ class ModelHandler:
 if __name__ == "__main__":
     modelhandler = ModelHandler(
         model =        EmotionRecognizerV2,
-        batch_size =   64,
+        batch_size =   128,
         start_lr =     0.01,
-        epochs =       1,
+        epochs =       10,
         gamma =        0.5,
         weight_decay = 0.005,
         min_lr =       0,
         momentum =     0.9
     )
-    modelhandler.load_model('models/V2/2024-1-7 17_17_47 l1.7896 a0.3 CrossEntropyLoss-Adam-CosineAnnealingLR.pt')
-    #modelhandler.train()
-    test = "V2"
-    modelhandler.test(test_name=test)
+
     modelhandler.train()
+    test = "testing"
     modelhandler.test(test_name=test)
-    #modelhandler.save_excel(f"{test}.xlsx")
-    #modelhandler.save_model(save_path=f"models/{test}")
-    # modelhandler.plot_trainvstestloss(display_plot=False)
-    
-    #modelhandler.repeat_train()
+    modelhandler.save_model(save_path="")

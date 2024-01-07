@@ -9,8 +9,8 @@ model = EmotionRecognizerV2(num_classes=7)
 model.load_state_dict(torch.load('models/V3/2024-1-7 16_29_13 l1.6267 a0.4 CrossEntropyLoss-Adam-CosineAnnealingLR.pt', map_location=torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')))
 model.eval()
 
-# Create a VideoCapture object to access the webcam
-cap = cv2.VideoCapture(0)
+# Create a VideoCapture object to access the video file
+cap = cv2.VideoCapture('C:/Users/mathi/Videos/oliver/oliverclips.mkv')
 
 emotion_labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
 
@@ -20,8 +20,12 @@ os.makedirs('preprocessed_images', exist_ok=True)
 image_counter = 0
 
 while True:
-    # Capture frame from the webcam
+    # Capture frame from the video
     ret, frame = cap.read()
+
+    # Check if the video has reached the end
+    if not ret:
+        break
 
     # Display the frame
     cv2.imshow('Emotion Recognition', frame)
