@@ -60,7 +60,8 @@ class ModelHandler:
             "Created by": ["Stationær"], #
             "Total training time": [], #
             "Gamma": [self.gamma], #
-            "Weight decay": [self.weight_decay] #
+            "Weight decay": [self.weight_decay], #
+            "Model": [self.model.__class__.__name__] #
         }
 
         # Load data
@@ -326,22 +327,20 @@ class ModelHandler:
 
 if __name__ == "__main__":
     modelhandler = ModelHandler(
-        model =        EmotionRecognizerV2,
+        model =        EmotionRecognizerV3,
         batch_size =   64,
         start_lr =     0.01,
-        epochs =       20,
+        epochs =       5,
         gamma =        0.5,
-        weight_decay = 0,
+        weight_decay = 0.005,
         min_lr =       0,
         momentum =     0.9
     )
     # modelhandler.load()
     modelhandler.train()
-    test = "Test 17"
-    modelhandler.save_model(f"models/{test}")
+    test = "Test test"
+    # modelhandler.save_model(f"models/{test}")
     modelhandler.test(test_name=test)
-    modelhandler.plot_trainvstestloss(display_plot=False)
+    # modelhandler.plot_trainvstestloss(display_plot=False)
     modelhandler.save_excel(f"{test}.xlsx")
-    # Run ModelHandler.test() before saving excel for most information
-    # modelhandler.save_excel("test1.xlsx")
     #modelhandler.repeat_train()
