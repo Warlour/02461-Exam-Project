@@ -71,16 +71,15 @@ class ModelHandler:
         self.lossfunction = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
         # self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
-        self.scheduler = None
+        # self.scheduler = "None"
         # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=epochs, eta_min=min_lr)
-        # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=self.gamma, patience=5, verbose=True)
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=self.gamma, patience=5, verbose=False)
         # self.scheduler = "AliLR"
 
         if self.scheduler == "AliLR":
             self.milestep = [i for i in range(math.ceil(epochs/10), epochs + 1, math.ceil(epochs/10))]
 
-        if self.scheduler:
-            self.data["Scheduler"] = [self.scheduler] if isinstance(self.scheduler, str) else [self.scheduler.__class__.__name__]
+        self.data["Scheduler"] = [self.scheduler] if isinstance(self.scheduler, str) else [self.scheduler.__class__.__name__]
 
         self.data["Loss function"] = [self.lossfunction.__class__.__name__]
         self.data["Optimizer"] = [self.optimizer.__class__.__name__]
@@ -124,6 +123,7 @@ class ModelHandler:
             early_stop_counter = 0
             patience_threshold = 5  # Number of epochs to wait before stopping
             min_test_loss = float('inf')
+            test_loss = 0
 
             for epoch in range(self.epochs):
                 start = perf_counter()
@@ -148,8 +148,13 @@ class ModelHandler:
                     self.optimizer.step()
 
                     # Scheduler step
-                    if self.scheduler != None and self.scheduler != "AliLR":
+                    if self.scheduler != "None" and self.scheduler != "AliLR" and self.scheduler.__class__.__name__ != "ReduceLROnPlateau":
                         self.scheduler.step()
+                    
+                    # IF ReduceLROnPlateau
+                    if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
+                        #val_loss =
+                        self.scheduler.step(metrics=test_loss)
                     
                     stepend = perf_counter()
                     steptimes.append(stepend - stepstart)
@@ -191,7 +196,7 @@ class ModelHandler:
                 self.model.train()
 
                 # Save latest learning rate
-                if self.scheduler != None and self.scheduler != "AliLR":
+                if self.scheduler != "None" and self.scheduler != "AliLR":
                     self.latest_lr = self.scheduler.get_last_lr()[0]
                 elif self.scheduler == "AliLR":
                     self.latest_lr = self._get_lr(self.optimizer)
