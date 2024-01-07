@@ -196,7 +196,7 @@ class ModelHandler:
                 self.model.train()
 
                 # Save latest learning rate
-                if self.scheduler != "None" and self.scheduler != "AliLR":
+                if self.scheduler != "None" and self.scheduler != "AliLR" and self.scheduler.__class__.__name__ != "ReduceLROnPlateau":
                     self.latest_lr = self.scheduler.get_last_lr()[0]
                 elif self.scheduler == "AliLR":
                     self.latest_lr = self._get_lr(self.optimizer)
@@ -371,7 +371,7 @@ if __name__ == "__main__":
         model =        EmotionRecognizerV3,
         batch_size =   64,
         start_lr =     0.001,
-        epochs =       10,
+        epochs =       1,
         gamma =        0.5,
         weight_decay = 0.0001,
         min_lr =       0,
