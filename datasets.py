@@ -3,9 +3,9 @@ from torchvision.datasets import VisionDataset
 from torchvision.io import read_image
 from torchvision import transforms
 
-class CustomFER2013Dataset(VisionDataset):
+class CustomDataset(VisionDataset):
     def __init__(self, root, transform=None, target_transform=None):
-        super(CustomFER2013Dataset, self).__init__(root, transform=transform, target_transform=target_transform)
+        super(CustomDataset, self).__init__(root, transform=transform, target_transform=target_transform)
         self.root = root
         self.transform = transform
         self.target_transform = target_transform
@@ -43,8 +43,3 @@ class CustomFER2013Dataset(VisionDataset):
             label = self.target_transform(label)
 
         return img, label
-
-# Example usage:
-# custom_transforms = transforms.Compose([...])  # Define your transformations here
-# C = CustomFER2013Dataset(Vis)
-# print(custom_fer2013_dataset)

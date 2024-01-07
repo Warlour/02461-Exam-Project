@@ -3,6 +3,12 @@ import torch.nn.functional as F
 """
 class EmotionRecognizer(nn.Module):
     def __init__(self, num_classes, rgb=False):
+        self.FCS = 2
+        self.CONVS = 4
+        self.MAXPOOLS = 2
+        self.MEANPOOLS = 0
+        self.DROPOUTS = 0
+
         super(EmotionRecognizer, self).__init__()
         # in_channels: color channels, black and white is 1, rgb is 3
         self.conv_layer1 = nn.Conv2d(in_channels=3 if rgb else 1, out_channels=32, kernel_size=3)

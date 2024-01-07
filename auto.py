@@ -13,15 +13,15 @@ def worker(process):
     print(f"Worker {process}/{total} on PID {os.getpid()}")
     runargs = ["py", "main.py", 
         "--batch_size",         "64", # Batch size
-        # "--learning_rate",    "0.001", # Learning rate
+        "--learning_rate",      "0.01", # Learning rate
         "--epochs",             "20", # Epochs
-        "--momentum",           "0.9", # Momentum
-        "--weight_decay",       "0.005", # Weight decay
-        "--scheduler_type",     "AliLR", # Scheduler
+        "--momentum",           "0", # Momentum
+        "--weight_decay",       "0", # Weight decay
+        "--scheduler_type",     "None", # Scheduler
         "--gamma",              "0.5", # Gamma
         "--min_lr",             "0", # Minimum learning rate
-        #"--output_csv",         "test22.xlsx" # Output filename
-        "--disable_csv"
+        "--output_csv",         "test1.xlsx" # Output filename
+        "--note", "test1"
     ]
     if (process % max_processes) == 0:
         subprocess.run(runargs)
