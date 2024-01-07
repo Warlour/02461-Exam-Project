@@ -204,6 +204,8 @@ class ModelHandler:
                     self.latest_lr = self.start_lr
 
                 print(f"Epoch [{epoch+1}/{self.epochs}] | Train Loss: {self.losses[-1]} | Test Loss: {test_loss_avg} | Time elapsed: {measure:.2f}s | Learning rate: {self.latest_lr}")
+
+                self.trained = True
             
             # Data
             ct = datetime.datetime.now()
@@ -229,7 +231,8 @@ class ModelHandler:
                 correct += (predicted == labels).sum().item()
 
             self.accuracy = correct/total
-        
+        self.tested = True
+
         # Data
         self.data["Accuracy"] = [self.accuracy]
         print("Done testing. Accuracy:", self.accuracy)
@@ -346,6 +349,9 @@ class ModelHandler:
                                                 shuffle = True)
 
     def plot_trainvstestloss(self, save_plot: bool = True, display_plot: bool = False) -> None:
+        if not self.trained and not self.tested:
+            print("Please train and test the model first.")
+            return
         # Plotting the training and testing losses
         plt.figure(figsize=(10, 6))
         plt.plot(range(1, self.epochs + 1), self.train_losses, label='Training Loss')
@@ -371,7 +377,7 @@ if __name__ == "__main__":
         model =        EmotionRecognizerV3,
         batch_size =   64,
         start_lr =     0.001,
-        epochs =       1,
+        epochs =       50,
         gamma =        0.5,
         weight_decay = 0.0001,
         min_lr =       0,
@@ -381,4 +387,4 @@ if __name__ == "__main__":
     modelhandler.train()
     test = "testing"
     modelhandler.test(test_name=test)
-    modelhandler.save_model(save_path="alfred")
+    modelhandler.save_model(save_path=test)

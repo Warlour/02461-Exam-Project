@@ -10,7 +10,7 @@ model.load_state_dict(torch.load('models/V3/2024-1-7 16_29_13 l1.6267 a0.4 Cross
 model.eval()
 
 # Create a VideoCapture object to access the video file
-cap = cv2.VideoCapture('C:/Users/mathi/Videos/oliver/oliverclips.mkv')
+cap = cv2.VideoCapture('path')
 
 emotion_labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
 
