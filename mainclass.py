@@ -243,7 +243,7 @@ class ModelHandler:
 
     def load_model(self, file_path: str) -> None:
         checkpoint = torch.load(file_path)
-        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.model.load_state_dict(checkpoint)
 
         # for param in self.model.parameters():
         #    param.requires_grad = False
@@ -330,19 +330,20 @@ if __name__ == "__main__":
         model =        EmotionRecognizerV2,
         batch_size =   64,
         start_lr =     0.01,
-        epochs =       50,
+        epochs =       1,
         gamma =        0.5,
         weight_decay = 0.005,
         min_lr =       0,
         momentum =     0.9
     )
-    # modelhandler.load()
-    modelhandler.train()
-    test = "V3"
-    # modelhandler.save_model(f"models/{test}")
+    modelhandler.load_model('models/V2/2024-1-7 17_17_47 l1.7896 a0.3 CrossEntropyLoss-Adam-CosineAnnealingLR.pt')
+    #modelhandler.train()
+    test = "V2"
     modelhandler.test(test_name=test)
-    modelhandler.save_excel(f"{test}.xlsx")
-    modelhandler.save_model(save_path=f"models/{test}")
+    modelhandler.train()
+    modelhandler.test(test_name=test)
+    #modelhandler.save_excel(f"{test}.xlsx")
+    #modelhandler.save_model(save_path=f"models/{test}")
     # modelhandler.plot_trainvstestloss(display_plot=False)
     
     #modelhandler.repeat_train()
