@@ -13,6 +13,7 @@ import torchvision, matplotlib
 import pandas as pd
 import sys
 import itertools
+import torch.nn.functional as F
 #from plot_results import plot_results
 
 # Table print
@@ -32,7 +33,7 @@ parser.add_argument('-g', '--gamma',          type=float, default=0.5,          
 parser.add_argument(      '--min_lr',         type=float, default=0,                          help="Minimum LR, also called eta_min in some schedulers | Default: 0")
 parser.add_argument(      '--max_lr',         type=float, default=0,                          help="Maximum LR | Default: 0")
 parser.add_argument(      '--last_epoch',     type=float, default=-1,                         help="The index of last epoch | Default: -1")
-parser.add_argument('-m', '--momentum',       type=float, default=0,                          help="Momentum | Default: 0")
+parser.add_argument('-m', '--momentum',       type=float, default=0.9,                          help="Momentum | Default: 0")
 parser.add_argument('-o', '--output_csv',     type=str,   default="data.xlsx",                help="CSV output filename | Default: data.csv")
 
 parser.add_argument('-t', '--scheduler_type', type=str,   default="None",                     help="Scheduler type (Case-sensitive) | Default: None")
@@ -84,7 +85,7 @@ optimizerfunc = args.optimizerfunc
 dataset = "FER2013"
 convlayers = 4
 pools = 2
-user = "Stationær"
+user = "Alfred"
 note = args.note
 
 new_data = {
@@ -112,6 +113,7 @@ new_data = {
 }
 
 # Load dataset
+"""
 all_transforms = transforms.Compose([transforms.Resize((32, 32)),
                                      transforms.ToTensor(),
                                      transforms.Normalize(mean=[0.5],
@@ -120,7 +122,27 @@ all_transforms = transforms.Compose([transforms.Resize((32, 32)),
 
 train_dataset = CustomDataset(root='data/FER2013/train', transform=all_transforms)
 
-test_dataset = CustomDataset(root='data/FER2013/test', transform=all_transforms)
+test_dataset = CustomFER2013Dataset(root='data/FER2013/test', transform=all_transforms)
+"""
+# Augmentation for the training dataset
+train_transforms = transforms.Compose([
+    transforms.Resize((32, 32)),
+    transforms.RandomHorizontalFlip(),  # Randomly flip images horizontally
+    transforms.RandomRotation(10),      # Randomly rotate images by up to 10 degrees
+    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),  # Randomly change brightness, contrast, and saturation
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5], std=[0.5])
+])
+
+# Only basic transforms for the test dataset
+test_transforms = transforms.Compose([
+    transforms.Resize((32, 32)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.5], std=[0.5])
+])
+
+train_dataset = CustomFER2013Dataset(root='data/FER2013/train', transform=train_transforms)
+test_dataset = CustomFER2013Dataset(root='data/FER2013/test', transform=test_transforms)
 
 train_loader = torch.utils.data.DataLoader(dataset = train_dataset,
                                            batch_size = batch_size,
@@ -133,7 +155,7 @@ test_loader = torch.utils.data.DataLoader(dataset = test_dataset,
 model = EmotionRecognizer(num_classes).to(device)
 lossfunction = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-# optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
+#optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
 
 # Use most suitable parameters provided for scheduler
 if scheduler_type != "None" and scheduler_type != "AliLR":
@@ -159,6 +181,11 @@ steptimes = []
 losses = []
 train_losses = []
 test_losses = []
+
+#early stoppage
+early_stop_counter = 0
+patience_threshold = 10  # Number of epochs to wait before stopping
+min_test_loss = float('inf')
 
 for epoch in range(num_epochs):
     start = perf_counter()
@@ -233,7 +260,18 @@ for epoch in range(num_epochs):
             outputs = model(images)
             test_loss += lossfunction(outputs, labels).item()
     
-    test_losses.append(test_loss / len(test_loader))  # Record the testing loss
+    test_loss_avg = test_loss / len(test_loader)  # Record the testing loss
+    test_losses.append(test_loss_avg)
+
+    if test_loss_avg < min_test_loss:
+        min_test_loss = test_loss_avg
+        early_stop_counter = 0  # reset counter if test loss decreases
+    else:
+        early_stop_counter += 1  # increment counter if test loss does not decrease
+
+    if early_stop_counter > patience_threshold:
+        print(f"Early stopping triggered at epoch {epoch+1}")
+        break  # Break out of the training loop
     model.train()
 
     if scheduler_type != "None" and scheduler_type != "AliLR":
@@ -243,7 +281,7 @@ for epoch in range(num_epochs):
     else:
         last_lr = learning_rate
 
-    print(f"Epoch [{epoch+1}/{num_epochs}] | Loss: {losses[-1]} | Time elapsed: {measure:.2f}s | Learning rate: {last_lr}")
+print(f"Epoch [{epoch+1}/{num_epochs}] | Train Loss: {losses[-1]} | Test Loss: {avg_test_loss} | Time elapsed: {measure:.2f}s | Learning rate: {last_lr}")
 
 ct = datetime.datetime.now()
 new_data["Loss"] = [losses[-1]]
@@ -334,14 +372,17 @@ console.print(table)
 
 import matplotlib.pyplot as plt
 
+# Number of epochs actually completed
+actual_epochs = len(test_losses)
+
 # Plotting the training and testing losses
 plt.figure(figsize=(10, 6))
-plt.plot(range(1, num_epochs + 1), train_losses, label='Training Loss')
-plt.plot(range(1, num_epochs + 1), test_losses, label='Testing Loss')
+plt.plot(range(1, actual_epochs + 1), train_losses[:actual_epochs], label='Training Loss')
+plt.plot(range(1, actual_epochs + 1), test_losses, label='Testing Loss')
 plt.xlabel('Epochs')
 plt.ylabel('Loss')
 plt.title('Training vs Testing Loss')
 plt.legend()
 plt.grid(True)
-plt.savefig(f'training_testing_loss_plot {customname}.png')  # Save the plot as a PNG file
-# plt.show()
+plt.savefig('training_testing_loss_plot.png')  # Save the plot as a PNG file
+plt.show()
