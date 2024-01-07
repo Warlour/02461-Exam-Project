@@ -43,6 +43,12 @@ class EmotionRecognizerV1(nn.Module):
 # Simple model
 class SimpleEmotionRecognizer(nn.Module):
     def __init__(self, num_classes, rgb=False):
+        self.FCS = 2
+        self.CONVS = 2
+        self.MAXPOOLS = 2
+        self.MEANPOOLS = 0
+        self.DROPOUTS = 1
+
         super(SimpleEmotionRecognizer, self).__init__()
         self.conv_layer1 = nn.Conv2d(in_channels=3 if rgb else 1, out_channels=16, kernel_size=3, padding=1)
         self.max_pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
@@ -67,6 +73,12 @@ class SimpleEmotionRecognizer(nn.Module):
 
 class EmotionRecognizerV2(nn.Module):
     def __init__(self, num_classes, rgb=False):
+        self.FCS = 2
+        self.CONVS = 4
+        self.MAXPOOLS = 2
+        self.MEANPOOLS = 0
+        self.DROPOUTS = 3
+
         super(EmotionRecognizerV2, self).__init__()
         self.conv_layer1 = nn.Conv2d(in_channels=3 if rgb else 1, out_channels=32, kernel_size=3, padding=1)
         self.bn1 = nn.BatchNorm2d(32)  # Batch normalization
