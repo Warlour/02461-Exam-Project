@@ -303,21 +303,21 @@ class ModelHandler:
 
 if __name__ == "__main__":
     modelhandler = ModelHandler(
-        model =        EmotionRecognizer,
+        model =        EmotionRecognizerV2,
         batch_size =   64,
         start_lr =     0.01,
         epochs =       20,
         gamma =        0.5,
-        weight_decay = 0,
+        weight_decay = 0.005,
         min_lr =       0,
         momentum =     0
     )
     # modelhandler.load()
     modelhandler.train()
     modelhandler.save_model("models/Test")
-    modelhandler.test(test_name="Test 1")
+    modelhandler.test(test_name="Test 2")
     modelhandler.plot_trainvstestloss(display_plot=False)
-    modelhandler.save_excel("test1.xlsx")
+    modelhandler.save_excel("test2.xlsx")
     # Run ModelHandler.test() before saving excel for most information
     # modelhandler.save_excel("test1.xlsx")
     #modelhandler.repeat_train()

@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
-"""
-class EmotionRecognizer(nn.Module):
+
+class EmotionRecognizerV1(nn.Module):
     def __init__(self, num_classes, rgb=False):
         self.FCS = 2
         self.CONVS = 4
@@ -9,7 +9,7 @@ class EmotionRecognizer(nn.Module):
         self.MEANPOOLS = 0
         self.DROPOUTS = 0
 
-        super(EmotionRecognizer, self).__init__()
+        super(EmotionRecognizerV1, self).__init__()
         # in_channels: color channels, black and white is 1, rgb is 3
         self.conv_layer1 = nn.Conv2d(in_channels=3 if rgb else 1, out_channels=32, kernel_size=3)
         self.conv_layer2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3)
@@ -39,13 +39,11 @@ class EmotionRecognizer(nn.Module):
         out = self.relu1(out)
         out=self.fc2(out)
         return out
-"""
-"""
-Simple model
 
-class EmotionRecognizer(nn.Module):
+# Simple model
+class SimpleEmotionRecognizer(nn.Module):
     def __init__(self, num_classes, rgb=False):
-        super(EmotionRecognizer, self).__init__()
+        super(SimpleEmotionRecognizer, self).__init__()
         self.conv_layer1 = nn.Conv2d(in_channels=3 if rgb else 1, out_channels=16, kernel_size=3, padding=1)
         self.max_pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
         self.conv_layer2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1)
@@ -66,11 +64,10 @@ class EmotionRecognizer(nn.Module):
         out = self.dropout(out)
         out = self.fc2(out)
         return out
-"""
 
-class EmotionRecognizer(nn.Module):
+class EmotionRecognizerV2(nn.Module):
     def __init__(self, num_classes, rgb=False):
-        super(EmotionRecognizer, self).__init__()
+        super(EmotionRecognizerV2, self).__init__()
         self.conv_layer1 = nn.Conv2d(in_channels=3 if rgb else 1, out_channels=32, kernel_size=3, padding=1)
         self.bn1 = nn.BatchNorm2d(32)  # Batch normalization
         self.conv_layer2 = nn.Conv2d(in_channels=32, out_channels=32, kernel_size=3, padding=1)
