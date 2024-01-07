@@ -30,7 +30,7 @@ class ModelHandler:
         self.momentum = momentum
 
         # To be changed data
-        self.accuracy = 0
+        self.accuracy = -1
 
         '''MODEL'''
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -60,7 +60,8 @@ class ModelHandler:
             "Created by": ["Stationær"], #
             "Total training time": [], #
             "Gamma": [self.gamma], #
-            "Weight decay": [self.weight_decay] #
+            "Weight decay": [self.weight_decay], #
+            "Model": [self.model.__class__.__name__] #
         }
 
         # Load data
@@ -69,6 +70,7 @@ class ModelHandler:
         # Functions
         self.lossfunction = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
+        #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=epochs, eta_min=min_lr)
         # self.scheduler = "AliLR"
 
@@ -188,7 +190,7 @@ class ModelHandler:
         except KeyboardInterrupt:
             print("Training interrupted, some data may be incomplete.")
 
-    def test(self) -> None:
+    def test(self, test_name: str) -> None:
         with torch.no_grad():
             correct = 0
             total = 0
@@ -205,6 +207,7 @@ class ModelHandler:
         # Data
         self.data["Accuracy"] = [self.accuracy]
         print("Done testing. Accuracy:", self.accuracy)
+        self.test_name = test_name if test_name else ""
 
     def _worker(self, process: int, total: int, test: bool, save: bool, model_path: str, excel_path: str) -> None:
         print(f"Worker {process}/{total} on PID {os.getpid()}")
@@ -215,13 +218,35 @@ class ModelHandler:
             self.save_model(f"models/{model_path}")
             self.save_excel(f"Excel/{process}_{excel_path}.xlsx")
 
-    def repeat_train(self, ) -> None:
-        
+    def repeat_train(self, total: int, max_processes: int, delay: int, test: bool, save: bool, model_path: str, excel_path: str) -> None:
+        processes = []
+        finished, current = 0
+
+        while finished < total:
+            if len(processes) < max_processes and current < total:
+                current += 1
+                p = multiprocessing.Process(target=self._worker, args=(current, total, test, save, model_path, excel_path))
+                p.start()
+                processes.append(p)
+                time.sleep(delay)  # Add delay before starting next process
+
+            for p in processes:
+                if not p.is_alive():
+                    processes.remove(p)
+                    finished += 1
+                    print("Finished worker", finished)
+
+            if not processes:
+                break
 
         print("Finished all processes")
 
     def load_model(self, file_path: str) -> None:
-        pass
+        checkpoint = torch.load(file_path)
+        self.model.load_state_dict(checkpoint)
+
+        # for param in self.model.parameters():
+        #    param.requires_grad = False
 
     def _str_to_filename(self, string: str):
         invalid_chars = ['\\', ':', '?', '<', '>', '|']
@@ -266,9 +291,10 @@ class ModelHandler:
                                                           std=[0.5])
                                     ])
 
-        self.train_dataset = CustomDataset(root=f'data/{root}/train', transform=all_transforms)
+        classes = ["angry", "disgust", "fear", "happy", "neutral", "sad", "surprise"]
+        self.train_dataset = SubfoldersDataset(root=f'data/{root}/train', filetype="jpg", classes=classes, transform=all_transforms)
 
-        self.test_dataset = CustomDataset(root=f'data/{root}/test', transform=all_transforms)
+        self.test_dataset = SubfoldersDataset(root=f'data/{root}/test', filetype="jpg", classes=classes, transform=all_transforms)
 
         self.train_loader = torch.utils.data.DataLoader(dataset = self.train_dataset,
                                                 batch_size = self.batch_size,
@@ -293,24 +319,25 @@ class ModelHandler:
         if display_plot:
             plt.show()
         if save_plot:
-            plt.savefig(self._str_to_filename(f'training_testing_loss_plot {customname}.png'))  # Save the plot as a PNG file
+            path = f"Images/{self.test_name}"
 
-
+            if not os.path.exists(path):
+                os.makedirs(path)
+            plt.savefig(self._str_to_filename(f'{path}/training_testing_loss_plot {customname}.png'))  # Save the plot as a PNG file
 
 if __name__ == "__main__":
-    modelhandler = ModelHandler(model=EmotionRecognizer, 
-                                batch_size=64, 
-                                start_lr=0.001, 
-                                epochs=20, 
-                                gamma=0.9, 
-                                weight_decay=0.0001, 
-                                min_lr=0.0001, 
-                                momentum=0.9,)
-    # modelhandler.load()
+    modelhandler = ModelHandler(
+        model =        EmotionRecognizerV2,
+        batch_size =   128,
+        start_lr =     0.01,
+        epochs =       10,
+        gamma =        0.5,
+        weight_decay = 0.005,
+        min_lr =       0,
+        momentum =     0.9
+    )
+
     modelhandler.train()
-    # modelhandler.save_model("models/Test")
-    modelhandler.test()
-    modelhandler.plot_trainvstestloss(display_plot=True)
-    # Run ModelHandler.test() before saving excel for most information
-    # modelhandler.save_excel("test1.xlsx")
-    #modelhandler.repeat_train()
+    test = "testing"
+    modelhandler.test(test_name=test)
+    modelhandler.save_model(save_path="")
