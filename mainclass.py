@@ -70,16 +70,20 @@ class ModelHandler:
         # Functions
         self.lossfunction = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
-        #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
-        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=epochs, eta_min=min_lr)
+        # self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
+        self.scheduler = None
+        # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=epochs, eta_min=min_lr)
+        # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=self.gamma, patience=5, verbose=True)
         # self.scheduler = "AliLR"
 
         if self.scheduler == "AliLR":
             self.milestep = [i for i in range(math.ceil(epochs/10), epochs + 1, math.ceil(epochs/10))]
 
+        if self.scheduler:
+            self.data["Scheduler"] = [self.scheduler] if isinstance(self.scheduler, str) else [self.scheduler.__class__.__name__]
+
         self.data["Loss function"] = [self.lossfunction.__class__.__name__]
         self.data["Optimizer"] = [self.optimizer.__class__.__name__]
-        self.data["Scheduler"] = [self.scheduler] if isinstance(self.scheduler, str) else [self.scheduler.__class__.__name__]
 
     def _get_lr(self, optimizer) -> float:
         for g in optimizer.param_groups:
@@ -116,6 +120,11 @@ class ModelHandler:
             self.train_losses = []
             self.test_losses = []
 
+            # Early Stoppage
+            early_stop_counter = 0
+            patience_threshold = 5  # Number of epochs to wait before stopping
+            min_test_loss = float('inf')
+
             for epoch in range(self.epochs):
                 start = perf_counter()
                 steptimes = []
@@ -139,7 +148,7 @@ class ModelHandler:
                     self.optimizer.step()
 
                     # Scheduler step
-                    if self.scheduler != "None" and self.scheduler != "AliLR":
+                    if self.scheduler != None and self.scheduler != "AliLR":
                         self.scheduler.step()
                     
                     stepend = perf_counter()
@@ -166,18 +175,30 @@ class ModelHandler:
                         outputs = self.model(images)
                         test_loss += self.lossfunction(outputs, labels).item()
                 
-                self.test_losses.append(test_loss / len(self.test_loader))
+                test_loss_avg = test_loss / len(self.test_loader)  # Record the testing loss
+                self.test_losses.append(test_loss_avg)
+
+                if test_loss_avg < min_test_loss:
+                    min_test_loss = test_loss_avg
+                    early_stop_counter = 0  # reset counter if test loss decreases
+                else:
+                    early_stop_counter += 1  # increment counter if test loss does not decrease
+
+                if early_stop_counter > patience_threshold:
+                    print(f"Early stopping triggered at epoch {epoch+1}")
+                    break  # Break out of the training loop
+
                 self.model.train()
 
                 # Save latest learning rate
-                if self.scheduler != "None" and self.scheduler != "AliLR":
+                if self.scheduler != None and self.scheduler != "AliLR":
                     self.latest_lr = self.scheduler.get_last_lr()[0]
                 elif self.scheduler == "AliLR":
                     self.latest_lr = self._get_lr(self.optimizer)
                 else:
                     self.latest_lr = self.start_lr
-                
-                print(f"Epoch [{epoch+1}/{self.epochs}] | Loss: {self.losses[-1]} | Time elapsed: {measure:.2f}s | Learning rate: {self.latest_lr}")
+
+                print(f"Epoch [{epoch+1}/{self.epochs}] | Train Loss: {self.losses[-1]} | Test Loss: {test_loss_avg} | Time elapsed: {measure:.2f}s | Learning rate: {self.latest_lr}")
             
             # Data
             ct = datetime.datetime.now()
@@ -285,16 +306,31 @@ class ModelHandler:
         print("Wrote to Excel")
 
     def _load_data(self, root) -> None:
-        all_transforms = transforms.Compose([transforms.Resize((32, 32)),
-                                     transforms.ToTensor(),
-                                     transforms.Normalize(mean=[0.5],
-                                                          std=[0.5])
-                                    ])
+        # all_transforms = transforms.Compose([transforms.Resize((32, 32)),
+        #                              transforms.ToTensor(),
+        #                              transforms.Normalize(mean=[0.5],
+        #                                                   std=[0.5])
+        #                             ])
+        train_transforms = transforms.Compose([
+            transforms.Resize((48, 48)),
+            transforms.RandomHorizontalFlip(),  # Randomly flip images horizontally
+            transforms.RandomRotation(10),      # Randomly rotate images by up to 10 degrees
+            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),  # Randomly change brightness, contrast, and saturation
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5], std=[0.5])
+        ])
+
+        # Only basic transforms for the test dataset
+        test_transforms = transforms.Compose([
+            transforms.Resize((48, 48)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5], std=[0.5])
+        ])
 
         classes = ["angry", "disgust", "fear", "happy", "neutral", "sad", "surprise"]
-        self.train_dataset = SubfoldersDataset(root=f'data/{root}/train', filetype="jpg", classes=classes, transform=all_transforms)
+        self.train_dataset = SubfoldersDataset(root=f'data/{root}/train', filetype="jpg", classes=classes, transform=train_transforms)
 
-        self.test_dataset = SubfoldersDataset(root=f'data/{root}/test', filetype="jpg", classes=classes, transform=all_transforms)
+        self.test_dataset = SubfoldersDataset(root=f'data/{root}/test', filetype="jpg", classes=classes, transform=test_transforms)
 
         self.train_loader = torch.utils.data.DataLoader(dataset = self.train_dataset,
                                                 batch_size = self.batch_size,
@@ -327,17 +363,17 @@ class ModelHandler:
 
 if __name__ == "__main__":
     modelhandler = ModelHandler(
-        model =        EmotionRecognizerV2,
-        batch_size =   128,
-        start_lr =     0.01,
+        model =        EmotionRecognizerV3,
+        batch_size =   64,
+        start_lr =     0.001,
         epochs =       10,
         gamma =        0.5,
-        weight_decay = 0.005,
+        weight_decay = 0.0001,
         min_lr =       0,
-        momentum =     0.9
+        momentum =     0
     )
 
     modelhandler.train()
     test = "testing"
     modelhandler.test(test_name=test)
-    modelhandler.save_model(save_path="")
+    modelhandler.save_model(save_path="alfred")
