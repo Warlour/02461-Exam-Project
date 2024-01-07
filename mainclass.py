@@ -65,15 +65,15 @@ class ModelHandler:
         }
 
         # Load data
-        self._load_data(datapath)
+        self.__load_data(datapath)
 
         # Functions
         self.lossfunction = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
         # self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
-        # self.scheduler = "None"
+        self.scheduler = "None"
         # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=epochs, eta_min=min_lr)
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=self.gamma, patience=5, verbose=False)
+        # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=self.gamma, patience=5, verbose=False)
         # self.scheduler = "AliLR"
 
         if self.scheduler == "AliLR":
@@ -84,19 +84,19 @@ class ModelHandler:
         self.data["Loss function"] = [self.lossfunction.__class__.__name__]
         self.data["Optimizer"] = [self.optimizer.__class__.__name__]
 
-    def _get_lr(self, optimizer) -> float:
+    def __get_lr(self, optimizer) -> float:
         for g in optimizer.param_groups:
             return g['lr']
 
-    def _set_lr(self, optimizer, new_lr) -> None:
+    def __set_lr(self, optimizer, new_lr) -> None:
         for g in optimizer.param_groups:
             g['lr'] = new_lr
 
-    def _print_eta(self, idx, times: list, epoch: int, start, stepend) -> float:
+    def __print_eta(self, idx, times: list, epoch: int, start, stepend) -> float:
         if idx % 30 == 0 and idx > 0: # Print every 30 steps
             avg_steptime = sum(times) / len(times)
-            remaining_steps_current_epoch = self.total_step - idx
-            remaining_steps_total = remaining_steps_current_epoch + self.total_step * (self.epochs - epoch - 1)
+            remaining_steps_current_epoch = self.__total_step - idx
+            remaining_steps_total = remaining_steps_current_epoch + self.__total_step * (self.epochs - epoch - 1)
             eta = avg_steptime * remaining_steps_current_epoch
 
             # Calculate drift factor
@@ -108,34 +108,35 @@ class ModelHandler:
             eta *= drift_factor
             total_eta = avg_steptime * remaining_steps_total * drift_factor
 
-            print(f" {idx}/{self.total_step} | ETA: {eta:.0f}s | Total ETA: {total_eta:.0f}s         ", end="\r")
+            print(f" {idx}/{self.__total_step} | ETA: {eta:.0f}s | Total ETA: {total_eta:.0f}s         ", end="\r")
 
-    def train(self) -> None:
+    def train(self, stoppage: bool = False) -> None:
+        self.__total_step = len(self.__train_loader)
+        self.__times = []
+
+        self.__losses = []
+        self.__train_losses = []
+        self.__test_losses = []
+        self.__lowest_loss_model = None
+
+        # Early Stoppage
+        early_stop_counter = 0
+        patience_threshold = 5  # Number of epochs to wait before stopping
+        min_test_loss = float('inf')
+        test_loss = 0
+
         try:
-            self.total_step = len(self.train_loader)
-            self.times = []
-
-            self.losses = []
-            self.train_losses = []
-            self.test_losses = []
-
-            # Early Stoppage
-            early_stop_counter = 0
-            patience_threshold = 5  # Number of epochs to wait before stopping
-            min_test_loss = float('inf')
-            test_loss = 0
-
             for epoch in range(self.epochs):
                 start = perf_counter()
                 steptimes = []
 
                 if self.scheduler == "AliLR":
-                    if self._get_lr(self.optimizer)*self.gamma > self.min_lr:
-                        self._set_lr(self.optimizer, self._get_lr(self.optimizer)*self.gamma)
+                    if self.__get_lr(self.optimizer)*self.gamma > self.min_lr:
+                        self.__set_lr(self.optimizer, self.__get_lr(self.optimizer)*self.gamma)
                     else:
-                        self._set_lr(self.optimizer, self.min_lr)
+                        self.__set_lr(self.optimizer, self.min_lr)
 
-                for i, (images, labels) in enumerate(self.train_loader):
+                for i, (images, labels) in enumerate(self.__train_loader):
                     stepstart = perf_counter()
                     images = images.to(self.device)
                     labels = labels.to(self.device)
@@ -160,38 +161,44 @@ class ModelHandler:
                     steptimes.append(stepend - stepstart)
 
                     # Calculate Epoch ETA and Total ETA and print
-                    self._print_eta(idx=i, times=steptimes, epoch=epoch, start=start, stepend=stepend)
+                    self.__print_eta(idx=i, times=steptimes, epoch=epoch, start=start, stepend=stepend)
 
                 end = perf_counter()
                 measure = end - start
-                self.times.append(measure)
-                self.losses.append(round(loss.item(), 4))
+                self.__times.append(measure)
+                self.__losses.append(round(loss.item(), 4))
 
                 # training error/loss
-                self.train_losses.append(self.losses[-1])
+                self.__train_losses.append(self.__losses[-1])
 
                 # Testing phase per epoch
                 self.model.eval() # Set model to evaluation mode
                 test_loss = 0
                 with torch.no_grad():
-                    for images, labels in self.test_loader:
+                    for images, labels in self.__test_loader:
                         images = images.to(self.device)
                         labels = labels.to(self.device)
                         outputs = self.model(images)
                         test_loss += self.lossfunction(outputs, labels).item()
                 
-                test_loss_avg = test_loss / len(self.test_loader)  # Record the testing loss
-                self.test_losses.append(test_loss_avg)
+                test_loss_avg = test_loss / len(self.__test_loader)  # Record the testing loss
+                self.__test_losses.append(test_loss_avg)
 
                 if test_loss_avg < min_test_loss:
                     min_test_loss = test_loss_avg
-                    early_stop_counter = 0  # reset counter if test loss decreases
-                else:
-                    early_stop_counter += 1  # increment counter if test loss does not decrease
+                    self.__lowest_loss_model = self.model.state_dict()
 
-                if early_stop_counter > patience_threshold:
-                    print(f"Early stopping triggered at epoch {epoch+1}")
-                    break  # Break out of the training loop
+                # Early stopping
+                if stoppage:
+                    if test_loss_avg < min_test_loss:
+                        min_test_loss = test_loss_avg
+                        early_stop_counter = 0  # reset counter if test loss decreases
+                    else:
+                        early_stop_counter += 1  # increment counter if test loss does not decrease
+
+                    if early_stop_counter > patience_threshold:
+                        print(f"Early stopping triggered at epoch {epoch+1}")
+                        break  # Break out of the training loop
 
                 self.model.train()
 
@@ -199,30 +206,30 @@ class ModelHandler:
                 if self.scheduler != "None" and self.scheduler != "AliLR" and self.scheduler.__class__.__name__ != "ReduceLROnPlateau":
                     self.latest_lr = self.scheduler.get_last_lr()[0]
                 elif self.scheduler == "AliLR":
-                    self.latest_lr = self._get_lr(self.optimizer)
+                    self.latest_lr = self.__get_lr(self.optimizer)
                 else:
                     self.latest_lr = self.start_lr
 
-                print(f"Epoch [{epoch+1}/{self.epochs}] | Train Loss: {self.losses[-1]} | Test Loss: {test_loss_avg} | Time elapsed: {measure:.2f}s | Learning rate: {self.latest_lr}")
+                print(f"Epoch [{epoch+1}/{self.epochs}] | Train Loss: {self.__losses[-1]} | Test Loss: {test_loss_avg} | Time elapsed: {measure:.2f}s | Learning rate: {self.latest_lr}")
 
                 self.trained = True
-            
-            # Data
-            ct = datetime.datetime.now()
-            self.data["Date & Time"] = [f"{ct.year}-{ct.month}-{ct.day} {ct.hour}:{ct.minute}:{ct.second}"]
-            self.data['Total training time'] = [round(sum(self.times), 1)]
-            self.data["Avg. Time / Epoch"] = [round(sum(self.times)/len(self.times), 1)]
-            self.data["End LR"] = [self.latest_lr]
-            self.data["Loss"] = [self.losses[-1]]
-            self.data["Min. loss"] = [min(self.losses)]
         except KeyboardInterrupt:
-            print("Training interrupted, some data may be incomplete.")
+            print("Training interrupted, use save_model() to save the latest model and lowest loss model.")
+        
+        # Data
+        ct = datetime.datetime.now()
+        self.data["Date & Time"] = [f"{ct.year}-{ct.month}-{ct.day} {ct.hour}:{ct.minute}:{ct.second}"]
+        self.data['Total training time'] = [round(sum(self.__times), 1)]
+        self.data["Avg. Time / Epoch"] = [round(sum(self.__times)/len(self.__times), 1)]
+        self.data["End LR"] = [self.latest_lr]
+        self.data["Loss"] = [self.__losses[-1]]
+        self.data["Min. loss"] = [min(self.__losses)]
 
-    def test(self, test_name: str) -> None:
+    def test(self, test_name: str = "") -> None:
         with torch.no_grad():
             correct = 0
             total = 0
-            for images, labels in self.test_loader:
+            for images, labels in self.__test_loader:
                 images = images.to(self.device)
                 labels = labels.to(self.device)
                 outputs = self.model(images)
@@ -238,7 +245,7 @@ class ModelHandler:
         print("Done testing. Accuracy:", self.accuracy)
         self.test_name = test_name if test_name else ""
 
-    def _worker(self, process: int, total: int, test: bool, save: bool, model_path: str, excel_path: str) -> None:
+    def __worker(self, process: int, total: int, test: bool, save: bool, model_path: str, excel_path: str) -> None:
         print(f"Worker {process}/{total} on PID {os.getpid()}")
         self.train()
         if test:
@@ -254,7 +261,7 @@ class ModelHandler:
         while finished < total:
             if len(processes) < max_processes and current < total:
                 current += 1
-                p = multiprocessing.Process(target=self._worker, args=(current, total, test, save, model_path, excel_path))
+                p = multiprocessing.Process(target=self.__worker, args=(current, total, test, save, model_path, excel_path))
                 p.start()
                 processes.append(p)
                 time.sleep(delay)  # Add delay before starting next process
@@ -277,43 +284,52 @@ class ModelHandler:
         # for param in self.model.parameters():
         #    param.requires_grad = False
 
-    def _str_to_filename(self, string: str):
+    def __str_to_filename(self, string: str):
         invalid_chars = ['\\', ':', '?', '<', '>', '|']
         for char in invalid_chars:
             string = string.replace(char, '_')
         return string
 
-    def save_model(self, save_path) -> None:
-        customname = f'{self.data["Date & Time"][0]} l{self.data["Loss"][0]} a{self.accuracy:.1f} {self.data["Loss function"][0]}-{self.data["Optimizer"][0]}-{self.data["Scheduler"][0]}'
-        path = f"{self._str_to_filename(save_path)}/"
+    def save_model(self, save_path, save_lowest: bool = False) -> None:
+        self.customname = self.__str_to_filename(f'{self.data["Date & Time"][0]} l{self.data["Loss"][0]} a{self.accuracy:.1f} {self.data["Loss function"][0]}-{self.data["Optimizer"][0]}-{self.data["Scheduler"][0]}')
+        path = f"{save_path}/{self.customname}"
 
-        if not os.path.exists(path):
-            os.makedirs(path)
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
 
-        torch.save(self.model.state_dict(), path+f"{self._str_to_filename(customname)}.pt")
-        print("Saved model to", path)
+        torch.save(self.model.state_dict(), f"{path}.pt")
+        print("Saved model to", save_path)
+        if save_lowest:
+            torch.save(self.__lowest_loss_model, f"{path}_lowest_loss.pt")
+            print("Saved lowest loss model to", save_path)
 
     def save_excel(self, path) -> None:
+        '''
+        Saves the data to an excel file\\
+        Don't add file extension
+        '''
+        if not os.path.exists("Excel/"+path):
+            os.makedirs("Excel/"+path)
         while True:
             try:
                 try:
-                    df = pd.read_excel("Excel/"+path)
+                    df = pd.read_excel("Excel/"+path+".xlsx")
                 except FileNotFoundError:
                     df = pd.DataFrame(columns=self.data.keys())
-                    df.to_excel("Excel/"+path, index=False)
+                    df.to_excel("Excel/"+path+".xlsx", index=False)
                     print("Created new excel file")
                 
                 df = pd.concat([df, pd.DataFrame(self.data)], ignore_index=True)
 
                 # Output to excel
-                df.to_excel("Excel/"+path, index=False)
+                df.to_excel("Excel/"+path+".xlsx", index=False)
                 break
             except PermissionError:
                 print("Please close the excel file. Retrying in 2 seconds...")
                 time.sleep(2)
         print("Wrote to Excel")
 
-    def _load_data(self, root) -> None:
+    def __load_data(self, root) -> None:
         # all_transforms = transforms.Compose([transforms.Resize((32, 32)),
         #                              transforms.ToTensor(),
         #                              transforms.Normalize(mean=[0.5],
@@ -336,15 +352,15 @@ class ModelHandler:
         ])
 
         classes = ["angry", "disgust", "fear", "happy", "neutral", "sad", "surprise"]
-        self.train_dataset = SubfoldersDataset(root=f'data/{root}/train', filetype="jpg", classes=classes, transform=train_transforms)
+        self.__train_dataset = SubfoldersDataset(root=f'data/{root}/train', filetype="jpg", classes=classes, transform=train_transforms)
 
-        self.test_dataset = SubfoldersDataset(root=f'data/{root}/test', filetype="jpg", classes=classes, transform=test_transforms)
+        self.__test_dataset = SubfoldersDataset(root=f'data/{root}/test', filetype="jpg", classes=classes, transform=test_transforms)
 
-        self.train_loader = torch.utils.data.DataLoader(dataset = self.train_dataset,
+        self.__train_loader = torch.utils.data.DataLoader(dataset = self.__train_dataset,
                                                 batch_size = self.batch_size,
                                                 shuffle = True)
 
-        self.test_loader = torch.utils.data.DataLoader(dataset = self.test_dataset,
+        self.__test_loader = torch.utils.data.DataLoader(dataset = self.__test_dataset,
                                                 batch_size = self.batch_size,
                                                 shuffle = True)
 
@@ -354,8 +370,8 @@ class ModelHandler:
             return
         # Plotting the training and testing losses
         plt.figure(figsize=(10, 6))
-        plt.plot(range(1, self.epochs + 1), self.train_losses, label='Training Loss')
-        plt.plot(range(1, self.epochs + 1), self.test_losses, label='Testing Loss')
+        plt.plot(range(1, self.epochs + 1), self.__train_losses, label='Training Loss')
+        plt.plot(range(1, self.epochs + 1), self.__test_losses, label='Testing Loss')
         plt.xlabel('Epochs')
         plt.ylabel('Loss')
         plt.title('Training vs Testing Loss')
@@ -370,14 +386,14 @@ class ModelHandler:
 
             if not os.path.exists(path):
                 os.makedirs(path)
-            plt.savefig(self._str_to_filename(f'{path}/training_testing_loss_plot {customname}.png'))  # Save the plot as a PNG file
+            plt.savefig(self.__str_to_filename(f'{path}/training_testing_loss_plot {customname}.png'))  # Save the plot as a PNG file
 
 if __name__ == "__main__":
     modelhandler = ModelHandler(
         model =        EmotionRecognizerV3,
         batch_size =   64,
         start_lr =     0.001,
-        epochs =       50,
+        epochs =       3,
         gamma =        0.5,
         weight_decay = 0.0001,
         min_lr =       0,
@@ -385,6 +401,4 @@ if __name__ == "__main__":
     )
 
     modelhandler.train()
-    test = "testing"
-    modelhandler.test(test_name=test)
-    modelhandler.save_model(save_path=test)
+    modelhandler.save_model("models", save_lowest=True)
