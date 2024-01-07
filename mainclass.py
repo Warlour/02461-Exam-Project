@@ -68,7 +68,8 @@ class ModelHandler:
 
         # Functions
         self.lossfunction = nn.CrossEntropyLoss()
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
+        #self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=epochs, eta_min=min_lr)
         # self.scheduler = "AliLR"
 
@@ -188,7 +189,7 @@ class ModelHandler:
         except KeyboardInterrupt:
             print("Training interrupted, some data may be incomplete.")
 
-    def test(self) -> None:
+    def test(self, test_name: str) -> None:
         with torch.no_grad():
             correct = 0
             total = 0
@@ -205,6 +206,7 @@ class ModelHandler:
         # Data
         self.data["Accuracy"] = [self.accuracy]
         print("Done testing. Accuracy:", self.accuracy)
+        self.test_name = test_name if test_name else ""
 
     def _worker(self, process: int, total: int, test: bool, save: bool, model_path: str, excel_path: str) -> None:
         print(f"Worker {process}/{total} on PID {os.getpid()}")
@@ -293,24 +295,29 @@ class ModelHandler:
         if display_plot:
             plt.show()
         if save_plot:
-            plt.savefig(self._str_to_filename(f'training_testing_loss_plot {customname}.png'))  # Save the plot as a PNG file
+            path = f"Images/{self.test_name}"
 
-
+            if not os.path.exists(path):
+                os.makedirs(path)
+            plt.savefig(self._str_to_filename(f'{path}/training_testing_loss_plot {customname}.png'))  # Save the plot as a PNG file
 
 if __name__ == "__main__":
-    modelhandler = ModelHandler(model=EmotionRecognizer, 
-                                batch_size=64, 
-                                start_lr=0.001, 
-                                epochs=20, 
-                                gamma=0.9, 
-                                weight_decay=0.0001, 
-                                min_lr=0.0001, 
-                                momentum=0.9,)
+    modelhandler = ModelHandler(
+        model =        EmotionRecognizer,
+        batch_size =   64,
+        start_lr =     0.01,
+        epochs =       20,
+        gamma =        0.5,
+        weight_decay = 0,
+        min_lr =       0,
+        momentum =     0
+    )
     # modelhandler.load()
     modelhandler.train()
-    # modelhandler.save_model("models/Test")
-    modelhandler.test()
-    modelhandler.plot_trainvstestloss(display_plot=True)
+    modelhandler.save_model("models/Test")
+    modelhandler.test(test_name="Test 1")
+    modelhandler.plot_trainvstestloss(display_plot=False)
+    modelhandler.save_excel("test1.xlsx")
     # Run ModelHandler.test() before saving excel for most information
     # modelhandler.save_excel("test1.xlsx")
     #modelhandler.repeat_train()
