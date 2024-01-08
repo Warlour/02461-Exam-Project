@@ -198,7 +198,7 @@ class ModelHandler:
                         early_stop_counter += 1  # increment counter if test loss does not decrease
 
                     if early_stop_counter > patience_threshold:
-                        print(f"Early stopping triggered at epoch {epoch+1}")
+                        print(f"Early stopping triggered at epoch {epoch+1}               ")
                         break  # Break out of the training loop
 
                 self.model.train()
@@ -406,7 +406,7 @@ class ModelHandler:
 
 if __name__ == "__main__":
     modelhandler = ModelHandler(
-        model =        EmotionRecognizerV3,
+        model =        EmotionRecognizerV2,
         batch_size =   64,
         start_lr =     0.001,
         epochs =       100,
@@ -417,8 +417,8 @@ if __name__ == "__main__":
     )
 
     modelhandler.train(stoppage=True)
-    name = "100V3"
+    name = "100V2"
     modelhandler.test(test_name=name)
-    modelhandler.save_model("models")
-    modelhandler.save_excel(name)
+    #modelhandler.save_model("models", save_lowest=True)
+    #modelhandler.save_excel(name)
     modelhandler.plot_trainvstestloss(save_plot=True, display_plot=False)
