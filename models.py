@@ -20,9 +20,9 @@ class EmotionRecognizerV1(nn.Module):
         self.max_pool2 = nn.MaxPool2d(kernel_size = 2, stride = 2)
 
         '''Fully connected layers tilknytter hver neuron til næste neuron'''
-        self.fc1 = nn.Linear(1600, 128) # Fully connected layer
+        self.fc1 = nn.Linear(5184, 64) # Fully connected layer
         self.relu1 = nn.ReLU() # Aktiveringsfunktion
-        self.fc2 = nn.Linear(128, num_classes)
+        self.fc2 = nn.Linear(64, num_classes)
     
     def forward(self, x):
         out = self.conv_layer1(x)
