@@ -415,7 +415,7 @@ if __name__ == "__main__":
         momentum =     0
     )
 
-    modelhandler.train()
+    modelhandler.train(stoppage=True)
     name = "100V3"
     modelhandler.test(test_name=name)
     modelhandler.save_model("models")
