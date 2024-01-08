@@ -54,7 +54,7 @@ class SimpleEmotionRecognizer(nn.Module):
         self.max_pool1 = nn.MaxPool2d(kernel_size=2, stride=2)
         self.conv_layer2 = nn.Conv2d(in_channels=16, out_channels=32, kernel_size=3, padding=1)
         self.max_pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.fc1 = nn.Linear(2048, 64)  # Adjusted to 1152
+        self.fc1 = nn.Linear(4608, 64)  # Adjusted to 1152
         self.relu1 = nn.ReLU()
         self.dropout = nn.Dropout(0.5)
         self.fc2 = nn.Linear(64, num_classes)
