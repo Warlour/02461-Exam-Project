@@ -116,14 +116,14 @@ class ModelHandler:
 
         self.__losses = []
         self.__train_losses = []
-        self.__test_losses = []
+        self.__validation_losses = []
         self.__lowest_loss_model = None
 
         # Early Stoppage
         early_stop_counter = 0
         patience_threshold = 5  # Number of epochs to wait before stopping
-        min_test_loss = float('inf')
-        test_loss = 0
+        min_validation_loss = float('inf')
+        validation_loss = 0
 
         try:
             for epoch in range(self.epochs):
@@ -155,7 +155,7 @@ class ModelHandler:
                     # IF ReduceLROnPlateau
                     if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
                         #val_loss =
-                        self.scheduler.step(metrics=test_loss)
+                        self.scheduler.step(metrics=validation_loss)
                     
                     stepend = perf_counter()
                     steptimes.append(stepend - stepstart)
@@ -173,25 +173,25 @@ class ModelHandler:
 
                 # Testing phase per epoch
                 self.model.eval() # Set model to evaluation mode
-                test_loss = 0
+                validation_loss = 0
                 with torch.no_grad():
                     for images, labels in self.__test_loader:
                         images = images.to(self.device)
                         labels = labels.to(self.device)
                         outputs = self.model(images)
-                        test_loss += self.lossfunction(outputs, labels).item()
+                        validation_loss += self.lossfunction(outputs, labels).item()
                 
-                test_loss_avg = test_loss / len(self.__test_loader)  # Record the testing loss
-                self.__test_losses.append(test_loss_avg)
+                validation_loss_avg = validation_loss / len(self.__test_loader)  # Record the testing loss
+                self.__validation_losses.append(validation_loss_avg)
 
-                if test_loss_avg < min_test_loss:
-                    min_test_loss = test_loss_avg
+                if validation_loss_avg < min_validation_loss:
+                    min_validation_loss = validation_loss_avg
                     self.__lowest_loss_model = self.model.state_dict()
 
                 # Early stopping
                 if stoppage:
-                    if test_loss_avg < min_test_loss:
-                        min_test_loss = test_loss_avg
+                    if validation_loss_avg < min_validation_loss:
+                        min_validation_loss = validation_loss_avg
                         early_stop_counter = 0  # reset counter if test loss decreases
                     else:
                         early_stop_counter += 1  # increment counter if test loss does not decrease
@@ -210,7 +210,7 @@ class ModelHandler:
                 else:
                     self.latest_lr = self.start_lr
 
-                print(f"Epoch [{epoch+1}/{self.epochs}] | Train Loss: {self.__losses[-1]} | Test Loss: {test_loss_avg} | Time elapsed: {measure:.2f}s | Learning rate: {self.latest_lr}")
+                print(f"Epoch [{epoch+1}/{self.epochs}] | Train Loss: {self.__losses[-1]} | Validation Loss: {validation_loss_avg} | Time elapsed: {measure:.2f}s | Learning rate: {self.latest_lr}")
 
                 self.trained = True
         except KeyboardInterrupt:
@@ -351,16 +351,29 @@ class ModelHandler:
             transforms.Normalize(mean=[0.5], std=[0.5])
         ])
 
+        # Only basic transforms for the validation dataset
+        validation_transforms = transforms.Compose([
+            transforms.Resize((48, 48)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5], std=[0.5])
+        ])
+
         classes = ["angry", "disgust", "fear", "happy", "neutral", "sad", "surprise"]
         self.__train_dataset = SubfoldersDataset(root=f'data/{root}/train', filetype="jpg", classes=classes, transform=train_transforms)
 
         self.__test_dataset = SubfoldersDataset(root=f'data/{root}/test', filetype="jpg", classes=classes, transform=test_transforms)
+
+        self.__validation_dataset = SubfoldersDataset(root=f'data/{root}/validation', filetype="jpg", classes=classes, transform=validation_transforms)
 
         self.__train_loader = torch.utils.data.DataLoader(dataset = self.__train_dataset,
                                                 batch_size = self.batch_size,
                                                 shuffle = True)
 
         self.__test_loader = torch.utils.data.DataLoader(dataset = self.__test_dataset,
+                                                batch_size = self.batch_size,
+                                                shuffle = True)
+        
+        self.__validation_loader = torch.utils.data.DataLoader(dataset = self.__validation_dataset,
                                                 batch_size = self.batch_size,
                                                 shuffle = True)
 
@@ -371,7 +384,7 @@ class ModelHandler:
         # Plotting the training and testing losses
         plt.figure(figsize=(10, 6))
         plt.plot(range(1, self.epochs + 1), self.__train_losses, label='Training Loss')
-        plt.plot(range(1, self.epochs + 1), self.__test_losses, label='Testing Loss')
+        plt.plot(range(1, self.epochs + 1), self.__validation_losses, label='Testing Loss')
         plt.xlabel('Epochs')
         plt.ylabel('Loss')
         plt.title('Training vs Testing Loss')
