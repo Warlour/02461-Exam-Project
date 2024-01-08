@@ -181,11 +181,11 @@ class ModelHandler:
                         outputs = self.model(images)
                         validation_loss += self.lossfunction(outputs, labels).item()
                 
-                validation_loss_avg = validation_loss / len(self.__validation_loader)  # Record the testing loss
+                validation_loss_avg = validation_loss / len(self.__validation_loader)  # Record the validation loss
                 self.__validation_losses.append(validation_loss_avg)
 
-                if validation_loss_avg < min_validation_loss:
-                    min_validation_loss = validation_loss_avg
+                if validation_loss_avg < best_validation_loss:
+                    best_validation_loss = validation_loss_avg
                     self.__lowest_loss_model = self.model.state_dict()
 
                 # Early stopping
