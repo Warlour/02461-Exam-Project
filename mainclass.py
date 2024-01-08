@@ -124,6 +124,7 @@ class ModelHandler:
         patience_threshold = 10  # Number of epochs to wait before stopping
         min_validation_loss = float('inf')
         validation_loss = 0
+        best_validation_loss = float('inf')
 
         try:
             for epoch in range(self.epochs):
