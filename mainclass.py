@@ -121,7 +121,7 @@ class ModelHandler:
 
         # Early Stoppage
         early_stop_counter = 0
-        patience_threshold = 5  # Number of epochs to wait before stopping
+        patience_threshold = 10  # Number of epochs to wait before stopping
         min_validation_loss = float('inf')
         validation_loss = 0
 
@@ -171,17 +171,17 @@ class ModelHandler:
                 # training error/loss
                 self.__train_losses.append(self.__losses[-1])
 
-                # Testing phase per epoch
+                # Validation phase per epoch
                 self.model.eval() # Set model to evaluation mode
                 validation_loss = 0
                 with torch.no_grad():
-                    for images, labels in self.__test_loader:
+                    for images, labels in self.__validation_loader:
                         images = images.to(self.device)
                         labels = labels.to(self.device)
                         outputs = self.model(images)
                         validation_loss += self.lossfunction(outputs, labels).item()
                 
-                validation_loss_avg = validation_loss / len(self.__test_loader)  # Record the testing loss
+                validation_loss_avg = validation_loss / len(self.__validation_loader)  # Record the testing loss
                 self.__validation_losses.append(validation_loss_avg)
 
                 if validation_loss_avg < min_validation_loss:
@@ -381,13 +381,15 @@ class ModelHandler:
         if not self.trained and not self.tested:
             print("Please train and test the model first.")
             return
+        
+        actual_epochs = len(self.__validation_losses)
         # Plotting the training and testing losses
         plt.figure(figsize=(10, 6))
-        plt.plot(range(1, self.epochs + 1), self.__train_losses, label='Training Loss')
-        plt.plot(range(1, self.epochs + 1), self.__validation_losses, label='Testing Loss')
+        plt.plot(range(1, actual_epochs + 1), self.__train_losses[:actual_epochs], label='Training Loss')
+        plt.plot(range(1, actual_epochs + 1), self.__validation_losses, label='Validation Loss')
         plt.xlabel('Epochs')
         plt.ylabel('Loss')
-        plt.title('Training vs Testing Loss')
+        plt.title('Training vs Validation Loss')
         plt.legend()
         plt.grid(True)
 
@@ -399,14 +401,14 @@ class ModelHandler:
 
             if not os.path.exists(path):
                 os.makedirs(path)
-            plt.savefig(self.__str_to_filename(f'{path}/training_testing_loss_plot {customname}.png'))  # Save the plot as a PNG file
+            plt.savefig(self.__str_to_filename(f'{path}/training_validation_loss_plot {customname}.png'))  # Save the plot as a PNG file
 
 if __name__ == "__main__":
     modelhandler = ModelHandler(
         model =        EmotionRecognizerV3,
         batch_size =   64,
         start_lr =     0.001,
-        epochs =       3,
+        epochs =       100,
         gamma =        0.5,
         weight_decay = 0.0001,
         min_lr =       0,
@@ -414,4 +416,8 @@ if __name__ == "__main__":
     )
 
     modelhandler.train()
-    modelhandler.save_model("models", save_lowest=True)
+    name = "100V3"
+    modelhandler.test(test_name=name)
+    modelhandler.save_model("models")
+    modelhandler.save_excel(name)
+    modelhandler.plot_trainvstestloss(save_plot=True, display_plot=False)
