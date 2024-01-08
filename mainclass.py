@@ -18,7 +18,7 @@ from datasets import *
 
 class ModelHandler:
     def __init__(self, model, batch_size: int, start_lr: float, epochs: int, gamma: float, weight_decay: float, min_lr: float, momentum: float,
-                 datapath: str = "FER2013") -> None:
+                 datapath: str = "FER2013", name: str = "") -> None:
         # Variables
         self.batch_size = batch_size
         self.classes = 7
@@ -28,6 +28,7 @@ class ModelHandler:
         self.weight_decay = weight_decay
         self.min_lr = min_lr
         self.momentum = momentum
+        self.name = name
 
         # To be changed data
         self.accuracy = -1
@@ -69,12 +70,14 @@ class ModelHandler:
 
         # Functions
         self.lossfunction = nn.CrossEntropyLoss()
+
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
-        # self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
-        self.scheduler = "None"
+        #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
+
+        #self.scheduler = "None"
         # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=epochs, eta_min=min_lr)
         # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=self.gamma, patience=5, verbose=False)
-        # self.scheduler = "AliLR"
+        self.scheduler = "AliLR"
 
         if self.scheduler == "AliLR":
             self.milestep = [i for i in range(math.ceil(epochs/10), epochs + 1, math.ceil(epochs/10))]
@@ -226,7 +229,7 @@ class ModelHandler:
         self.data["Loss"] = [self.__losses[-1]]
         self.data["Min. loss"] = [min(self.__losses)]
 
-    def test(self, test_name: str = "") -> None:
+    def test(self) -> None:
         with torch.no_grad():
             correct = 0
             total = 0
@@ -244,7 +247,6 @@ class ModelHandler:
         # Data
         self.data["Accuracy"] = [self.accuracy]
         print("Done testing. Accuracy:", self.accuracy)
-        self.test_name = test_name if test_name else ""
 
     def __worker(self, process: int, total: int, test: bool, save: bool, model_path: str, excel_path: str) -> None:
         print(f"Worker {process}/{total} on PID {os.getpid()}")
@@ -293,7 +295,7 @@ class ModelHandler:
 
     def save_model(self, save_path, save_lowest: bool = False) -> None:
         self.customname = self.__str_to_filename(f'{self.data["Date & Time"][0]} l{self.data["Loss"][0]} a{self.accuracy:.1f} {self.data["Loss function"][0]}-{self.data["Optimizer"][0]}-{self.data["Scheduler"][0]}')
-        path = f"{save_path}/{self.customname}"
+        path = os.path.join(save_path, self.customname)
 
         if not os.path.exists(save_path):
             os.makedirs(save_path)
@@ -301,29 +303,34 @@ class ModelHandler:
         torch.save(self.model.state_dict(), f"{path}.pt")
         print("Saved model to", save_path)
         if save_lowest:
-            torch.save(self.__lowest_loss_model, f"{path}_lowest_loss.pt")
+            torch.save(self.__lowest_loss_model, f"{path}_lowest_loss {self.name}.pt")
             print("Saved lowest loss model to", save_path)
 
-    def save_excel(self, path) -> None:
+    def save_excel(self, save_path) -> None:
         '''
         Saves the data to an excel file\\
         Don't add file extension
+
+        param save_path: Directory of the file to save to
         '''
-        if not os.path.exists("Excel/"+path):
-            os.makedirs("Excel/"+path)
+        save_path = os.path.join("Excel", save_path)
+        file_path = save_path+".xlsx"
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
         while True:
             try:
                 try:
-                    df = pd.read_excel("Excel/"+path+".xlsx")
+                    df = pd.read_excel(file_path)
                 except FileNotFoundError:
                     df = pd.DataFrame(columns=self.data.keys())
-                    df.to_excel("Excel/"+path+".xlsx", index=False)
+                    df.to_excel(file_path, index=False)
                     print("Created new excel file")
                 
                 df = pd.concat([df, pd.DataFrame(self.data)], ignore_index=True)
 
                 # Output to excel
-                df.to_excel("Excel/"+path+".xlsx", index=False)
+                df.to_excel(file_path, index=False)
                 break
             except PermissionError:
                 print("Please close the excel file. Retrying in 2 seconds...")
@@ -378,7 +385,7 @@ class ModelHandler:
                                                 batch_size = self.batch_size,
                                                 shuffle = True)
 
-    def plot_trainvstestloss(self, save_plot: bool = True, display_plot: bool = False) -> None:
+    def plot_trainvstestloss(self, save_plot: bool = True, display_plot: bool = False, save_path: str = "") -> None:
         if not self.trained and not self.tested:
             print("Please train and test the model first.")
             return
@@ -398,28 +405,28 @@ class ModelHandler:
         if display_plot:
             plt.show()
         if save_plot:
-            path = f"Images/{self.test_name}"
+            path = os.path.join("Images", save_path)
 
             if not os.path.exists(path):
                 os.makedirs(path)
-            plt.savefig(self.__str_to_filename(f'{path}/training_validation_loss_plot {customname}.png'))  # Save the plot as a PNG file
+            plt.savefig(os.path.join("Images", self.__str_to_filename(self.name+" "+customname)+".png"))  # Save the plot as a PNG file
 
 if __name__ == "__main__":
+    name = "Test 18ns"
     modelhandler = ModelHandler(
-        model =        SimpleEmotionRecognizer,
+        model =        EmotionRecognizerV2,
         batch_size =   64,
         start_lr =     0.001,
         epochs =       100,
         gamma =        0.5,
-        weight_decay = 0.0001,
+        weight_decay = 0.005,
         min_lr =       0,
-        momentum =     0
+        momentum =     0.9,
+        name=name
     )
-
-    modelhandler.train(stoppage=True)
-    name = "100Simple"
-    modelhandler.test(test_name=name)
-    #modelhandler.save_model("models", save_lowest=True)
-    #modelhandler.save_excel(name)
-    modelhandler.plot_trainvstestloss(save_plot=True, display_plot=False)
-    modelhandler.save_excel(name)
+    modelhandler.train(stoppage=False)
+    modelhandler.test()
+    print(name)
+    modelhandler.save_model("models/New tests no stoppage/"+name, save_lowest=True)
+    modelhandler.save_excel("New tests no stoppage/"+name)
+    modelhandler.plot_trainvstestloss(save_path=name)
