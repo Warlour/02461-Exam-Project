@@ -44,3 +44,44 @@ class SubfoldersDataset(VisionDataset):
             label = self.target_transform(label)
 
         return img, label
+    
+class FolderDataset(VisionDataset):
+    def __init__(self, root, filetype: str, transform=None, target_transform=None):
+        super(SubfoldersDataset, self).__init__(root, transform=transform, target_transform=target_transform)
+        self.root = root
+        self.transform = transform
+        self.target_transform = target_transform
+        self.filetype = filetype
+        self.images, self.labels = self._load_dataset()
+
+    def _load_dataset(self):
+        images = []
+        labels = []
+
+        for filename in os.listdir(self.root):
+            if filename.endswith(f".{self.filetype}"):
+                img_path = os.path.join(self.root, filename)
+                images.append(img_path)
+                labels.append(0)
+
+        #print(images)
+        return images, labels
+
+    def __len__(self):
+        return len(self.images)
+
+    def __getitem__(self, idx):
+        img_path, label = self.images[idx], self.labels[idx]
+        img = read_image(img_path)
+        
+        if self.transform:
+            trans = transforms.ToPILImage()
+            img = self.transform(trans(img))
+
+        if self.target_transform:
+            label = self.target_transform(label)
+
+        return img, label
+
+if __name__ == "__main__":
+    train_dataset = SubfoldersDataset(root=f'data/FER2013/train', filetype="jpg", classes=["angry", "disgust",], transform=train_transforms)
