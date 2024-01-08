@@ -406,7 +406,7 @@ class ModelHandler:
 
 if __name__ == "__main__":
     modelhandler = ModelHandler(
-        model =        EmotionRecognizerV2,
+        model =        EmotionRecognizerV1,
         batch_size =   64,
         start_lr =     0.001,
         epochs =       100,
@@ -417,7 +417,7 @@ if __name__ == "__main__":
     )
 
     modelhandler.train(stoppage=True)
-    name = "100V2"
+    name = "100V1"
     modelhandler.test(test_name=name)
     #modelhandler.save_model("models", save_lowest=True)
     #modelhandler.save_excel(name)
