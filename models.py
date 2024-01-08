@@ -94,9 +94,9 @@ class EmotionRecognizerV2(nn.Module):
         self.max_pool2 = nn.MaxPool2d(kernel_size=2, stride=2)
         self.dropout2 = nn.Dropout(0.25)  # Dropout
 
-        self.fc1 = nn.Linear(4096, 128)
+        self.fc1 = nn.Linear(9216, 64)
         self.dropout3 = nn.Dropout(0.5)  # Dropout
-        self.fc2 = nn.Linear(128, num_classes)
+        self.fc2 = nn.Linear(64, num_classes)
     
     def forward(self, x):
         x = F.relu(self.bn1(self.conv_layer1(x)))
