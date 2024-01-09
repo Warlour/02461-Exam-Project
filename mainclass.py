@@ -454,7 +454,7 @@ if __name__ == "__main__":
         model =        EmotionRecognizerV2,
         weighted =     False,
         batch_size =   64,
-        epochs =       3,
+        epochs =       100,
         gamma =        0.5,
         min_lr =       0,
         momentum =     0.9,
