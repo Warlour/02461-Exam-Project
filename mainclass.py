@@ -78,7 +78,7 @@ class ModelHandler:
         for sample in samples:
             weights.append(total_samples/(sample*self.classes))
 
-        weight = torch.tensor(weights)
+        weight = torch.tensor(weights).to(self.device)
 
         # Functions
         if weighted:
@@ -449,10 +449,10 @@ class ModelHandler:
             print("Please test the model first.")
 
 if __name__ == "__main__":
-    name = "Best model, best parameters"
+    name = "Best model, best parameters, weighted"
     modelhandler = ModelHandler(
         model =        EmotionRecognizerV2,
-        weighted =     False,
+        weighted =     True,
         batch_size =   64,
         epochs =       100,
         gamma =        0.5,
