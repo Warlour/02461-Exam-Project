@@ -18,7 +18,7 @@ from datasets import *
 
 class ModelHandler:
     def __init__(self, model, batch_size: int, start_lr: float, epochs: int, gamma: float, weight_decay: float, min_lr: float, momentum: float,
-                 datapath: str = "FER2013", name: str = "") -> None:
+                 datapath: str = "FER2013", name: str = "", weighted: bool = True) -> None:
         # Variables
         self.batch_size = batch_size
         self.classes = 7
@@ -69,9 +69,12 @@ class ModelHandler:
         self.__load_data(datapath)
 
         # Functions
-        class_weights = torch.ones(self.classes) / self.classes
-        class_weights = class_weights.to(self.device)
-        self.lossfunction = nn.CrossEntropyLoss(weight=class_weights)
+        if weighted:
+            class_weights = torch.ones(self.classes) / self.classes
+            class_weights = class_weights.to(self.device)
+            self.lossfunction = nn.CrossEntropyLoss(weight=class_weights)
+        else:
+            self.lossfunction = nn.CrossEntropyLoss()
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
         #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
@@ -368,12 +371,19 @@ class ModelHandler:
             transforms.Normalize(mean=[0.5], std=[0.5])
         ])
 
-        classes = ["angry", "disgust", "fear", "happy", "neutral", "sad", "surprise"]
-        self.__train_dataset = SubfoldersDataset(root=f'data/{root}/train', filetype="jpg", classes=classes, transform=train_transforms)
+        # classes = ["angry", "disgust", "fear", "happy", "neutral", "sad", "surprise"]
+        # self.__train_dataset = SubfoldersDataset(root=f'data/{root}/train', filetype="jpg", classes=classes, transform=train_transforms)
 
-        self.__test_dataset = SubfoldersDataset(root=f'data/{root}/test', filetype="jpg", classes=classes, transform=test_transforms)
+        # self.__test_dataset = SubfoldersDataset(root=f'data/{root}/test', filetype="jpg", classes=classes, transform=test_transforms)
 
-        self.__validation_dataset = SubfoldersDataset(root=f'data/{root}/validation', filetype="jpg", classes=classes, transform=validation_transforms)
+        # self.__validation_dataset = SubfoldersDataset(root=f'data/{root}/validation', filetype="jpg", classes=classes, transform=validation_transforms)
+
+        # X angry, disgust, fear, happy, neutral, sad, surprise
+        self.__train_dataset = FolderDataset(root=f'data/{root}/train/angry', filetype="jpg", transform=train_transforms)
+
+        self.__test_dataset = FolderDataset(root=f'data/{root}/test/angry', filetype="jpg", transform=test_transforms)
+
+        self.__validation_dataset = FolderDataset(root=f'data/{root}/validation/angry', filetype="jpg", transform=validation_transforms)
 
         self.__train_loader = torch.utils.data.DataLoader(dataset = self.__train_dataset,
                                                 batch_size = self.batch_size,
@@ -414,9 +424,10 @@ class ModelHandler:
             plt.savefig(os.path.join("Images", self.__str_to_filename(self.name+" "+customname)+".png"))  # Save the plot as a PNG file
 
 if __name__ == "__main__":
-    name = "Best model, best parameters, weighted classes"
+    name = "Best model, best parameters, angry class"
     modelhandler = ModelHandler(
         model =        EmotionRecognizerV2,
+        weighted = False,
         batch_size =   64,
         epochs =       100,
         gamma =        0.5,
@@ -431,6 +442,6 @@ if __name__ == "__main__":
     #modelhandler.load_model("models/New tests/Test 5/2024-1-8 17_59_55 l1.7765 a0.2 CrossEntropyLoss-Adam-None_lowest_loss Test 5.pt")
     modelhandler.train(stoppage=True)
     modelhandler.test()
-    modelhandler.save_model("models/Best model best parameters", save_lowest=True)
-    modelhandler.save_excel("models/Best model best parameters")
-    modelhandler.plot_trainvstestloss(save_path="models/Best model best parameters", display_plot=False)
+    modelhandler.save_model("models/Best model best parameters, angry class", save_lowest=True)
+    modelhandler.save_excel("models/Best model best parameters, angry class")
+    modelhandler.plot_trainvstestloss(save_path="models/Best model best parameters, angry class", display_plot=False)

@@ -5,7 +5,7 @@ from torchvision import transforms
 
 class SubfoldersDataset(VisionDataset):
     def __init__(self, root, filetype: str, classes: list, transform=None, target_transform=None):
-        super(SubfoldersDataset, self).__init__(root, transform=transform, target_transform=target_transform)
+        super(self.__class__, self).__init__(root, transform=transform, target_transform=target_transform)
         self.root = root
         self.transform = transform
         self.target_transform = target_transform
@@ -47,7 +47,7 @@ class SubfoldersDataset(VisionDataset):
     
 class FolderDataset(VisionDataset):
     def __init__(self, root, filetype: str, transform=None, target_transform=None):
-        super(SubfoldersDataset, self).__init__(root, transform=transform, target_transform=target_transform)
+        super(self.__class__, self).__init__(root, transform=transform, target_transform=target_transform)
         self.root = root
         self.transform = transform
         self.target_transform = target_transform
