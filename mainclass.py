@@ -11,6 +11,7 @@ import time
 # Plots
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
+import seaborn as sns
 
 # Repeat training
 import multiprocessing, os, subprocess
@@ -244,6 +245,9 @@ class ModelHandler:
         self.data["Min. loss"] = [min(self.__losses)]
 
     def test(self) -> None:
+        self.__all_preds = []
+        self.__all_labels = []
+
         with torch.no_grad():
             correct = 0
             total = 0
@@ -254,6 +258,9 @@ class ModelHandler:
                 _, predicted = torch.max(outputs.data, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
+
+                self.__all_preds.extend(predicted.cpu().numpy())
+                self.__all_labels.extend(labels.cpu().numpy())
 
             self.accuracy = correct/total
         self.tested = True
@@ -426,15 +433,28 @@ class ModelHandler:
             plt.savefig(os.path.join("Images", self.__str_to_filename(self.name+" "+customname)+".png"))  # Save the plot as a PNG file
         
     def plot_confusionmatrix(self, save_plot: bool = True, display_plot: bool = False, save_path: str = "") -> None:
-        pass
+        if self.tested:
+            cm = confusion_matrix(self.__all_labels, self.__all_preds)
+            plt.figure(figsize=(10, 10))
+            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+            plt.xlabel('Predicted')
+            plt.ylabel('Actual')
+            plt.title('Confusion Matrix')
+            if save_plot:
+                plt.savefig(os.path.join(save_path, self.__str_to_filename(self.name+" "+self.customname)+".png"))
+
+            if display_plot:
+                plt.show()
+        else:
+            print("Please test the model first.")
 
 if __name__ == "__main__":
-    name = "Best model, best parameters, angry class"
+    name = "Best model, best parameters"
     modelhandler = ModelHandler(
         model =        EmotionRecognizerV2,
         weighted =     False,
         batch_size =   64,
-        epochs =       100,
+        epochs =       3,
         gamma =        0.5,
         min_lr =       0,
         momentum =     0.9,
@@ -447,7 +467,7 @@ if __name__ == "__main__":
     #modelhandler.load_model("models/New tests/Test 5/2024-1-8 17_59_55 l1.7765 a0.2 CrossEntropyLoss-Adam-None_lowest_loss Test 5.pt")
     modelhandler.train(stoppage=True)
     modelhandler.test()
-
-    # modelhandler.save_model("models/Best model best parameters, angry class", save_lowest=True)
-    # modelhandler.save_excel("models/Best model best parameters, angry class")
-    # modelhandler.plot_trainvstestloss(save_path="models/Best model best parameters, angry class", display_plot=False)
+    modelhandler.save_model(f"models/{name}", save_lowest=True)
+    modelhandler.save_excel(f"models/{name}")
+    modelhandler.plot_trainvstestloss(save_path=f"models/{name}", display_plot=False)
+    modelhandler.plot_confusionmatrix(save_path=f"models/{name}", display_plot=False)
