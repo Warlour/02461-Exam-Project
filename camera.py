@@ -20,6 +20,47 @@ class EmotionCamera:
 
         os.makedirs('preprocessed_images', exist_ok=True)
 
+        # Load bounding box model
+        self.net = cv2.dnn.readNetFromCaffe('Bounding box/deploy.prototxt', 'Bounding box/res10_300x300_ssd_iter_140000.caffemodel')
+
+    def bounding_box(self, frame):
+        resized_image = cv2.resize(frame, (300, 300))
+
+        # Preprocess image
+        blob = cv2.dnn.blobFromImage(resized_image, 1.0, (300, 300), (104.0, 177.0, 123.0))
+
+        # Feed into deep neural network
+        self.net.setInput(blob)
+        detections = self.net.forward()
+
+        largest_face = 0
+        largest_face_coords = None
+
+        for i in range(detections.shape[2]):
+            confidence = detections[0, 0, i, 2]
+
+            if confidence > 0.5:
+                box = detections[0, 0, i, 3:7] * np.array([frame.shape[1], frame.shape[0], frame.shape[1], frame.shape[0]])
+                (startX, startY, endX, endY) = box.astype(int)
+
+                face_size = (endX - startX) * (endY - startY)
+
+                if face_size > largest_face_size:
+                    largest_face_size = face_size
+                    largest_face_coords = (startX, startY, endX, endY)
+
+        if largest_face_coords is not None:
+            (startX, startY, endX, endY) = largest_face_coords
+            cv2.rectangle(frame, (startX, startY), (endX, endY), (255, 0, 0), 2)
+            cropped_face = frame[startY:endY, startX:endX]
+
+            cv2.imshow('Cropped face', cropped_face)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+        else:
+            print("No face detected")
+
+
     def start(self) -> None:
         capture = cv2.VideoCapture(0)
 
@@ -30,15 +71,6 @@ class EmotionCamera:
 
         image_counter = 0
         last_frame_time = time.time()
-
-        frame_transform = transforms.Compose([
-            transforms.Resize((48, 48)),
-            transforms.RandomHorizontalFlip(),  # Randomly flip images horizontally
-            transforms.RandomRotation(10),      # Randomly rotate images by up to 10 degrees
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),  # Randomly change brightness, contrast, and saturation
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5], std=[0.5])
-        ])
 
         preprocessed_images = []
         
