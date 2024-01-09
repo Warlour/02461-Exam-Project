@@ -86,12 +86,13 @@ class ModelHandler:
         else:
             self.lossfunction = nn.CrossEntropyLoss()
 
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
+        #self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
+        self.optimizer = torch.optim.RAdam(self.model.parameters (),lr=self.start_lr, weight_decay=self.weight_decay)
         #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
 
-        self.scheduler = "None"
+        # self.scheduler = "None"
         # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=epochs, eta_min=min_lr)
-        # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=self.gamma, patience=5, verbose=False)
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=self.gamma, patience=5, verbose=False)
         #self.scheduler = "AliLR"
 
         if self.scheduler == "AliLR":
@@ -170,16 +171,16 @@ class ModelHandler:
                     # Scheduler step
                     if self.scheduler != "None" and self.scheduler != "AliLR" and self.scheduler.__class__.__name__ != "ReduceLROnPlateau":
                         self.scheduler.step()
-                    
+                    """
                     # IF ReduceLROnPlateau
                     if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
                         #val_loss =
                         self.scheduler.step(metrics=validation_loss)
-                    
+                    """
                     stepend = perf_counter()
                     steptimes.append(stepend - stepstart)
 
-                    # Calculate Epoch ETA and Total ETA and print
+                    # Cal culate Epoch ETA and Total ETA and print
                     self.__print_eta(idx=i, times=steptimes, epoch=epoch, start=start, stepend=stepend)
 
                 end = perf_counter()
@@ -202,6 +203,9 @@ class ModelHandler:
                 
                 validation_loss_avg = validation_loss / len(self.__validation_loader)  # Record the validation loss
                 self.__validation_losses.append(validation_loss_avg)
+                # IF ReduceLROnPlateau
+                if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
+                    self.scheduler.step(validation_loss_avg)
 
                 if validation_loss_avg < best_validation_loss:
                     best_validation_loss = validation_loss_avg
@@ -455,10 +459,10 @@ if __name__ == "__main__":
     '''
     name = "Best model, best parameters, weighted"
     modelhandler = ModelHandler(
-        model =        EmotionRecognizerV2,
+        model =        EmotionRecognizerV4,
         weighted =     True,
         batch_size =   64,
-        epochs =       100,
+        epochs =       20,
         gamma =        0.5,
         min_lr =       0,
         momentum =     0.9,
