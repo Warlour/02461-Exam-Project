@@ -21,7 +21,7 @@ class ModelHandler:
                  datapath: str = "FER2013", name: str = "", weighted: bool = True) -> None:
         # Variables
         self.batch_size = batch_size
-        self.classes = 7
+        self.classes: int = 7
         self.start_lr = start_lr
         self.epochs = epochs
         self.gamma = gamma
@@ -68,8 +68,19 @@ class ModelHandler:
         # Load data
         self.__load_data(datapath)
 
+        samples = [3496, 382, 3585, 6314, 4345, 4227, 2775]
+        weights = []
+        total_samples = sum(samples)
+        for sample in samples:
+            weights.append(total_samples/(sample*self.classes))
+
+        weight = torch.tensor(weights)
+
         # Functions
-        self.lossfunction = nn.CrossEntropyLoss()
+        if weighted:
+            self.lossfunction = nn.CrossEntropyLoss(weight=weight)
+        else:
+            self.lossfunction = nn.CrossEntropyLoss()
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
         #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
