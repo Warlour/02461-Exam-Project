@@ -7,5 +7,9 @@ openpyxl==3.1.2
 rich==13.7.0
 opencv-python==4.9.0.80
 
+# Confusion matrix
+scikit_learn==1.3.2
+seaborn==0.13.1
+
 # Face detection
 yoloface==0.0.4
