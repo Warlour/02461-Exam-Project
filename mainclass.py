@@ -71,13 +71,13 @@ class ModelHandler:
         # Functions
         self.lossfunction = nn.CrossEntropyLoss()
 
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
-        #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
+        #self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
 
-        #self.scheduler = "None"
+        self.scheduler = "None"
         # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=epochs, eta_min=min_lr)
         # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=self.gamma, patience=5, verbose=False)
-        self.scheduler = "AliLR"
+        #self.scheduler = "AliLR"
 
         if self.scheduler == "AliLR":
             self.milestep = [i for i in range(math.ceil(epochs/10), epochs + 1, math.ceil(epochs/10))]
@@ -281,7 +281,7 @@ class ModelHandler:
         print("Finished all processes")
 
     def load_model(self, file_path: str) -> None:
-        checkpoint = torch.load(file_path)
+        checkpoint = torch.load(file_path, map_location=self.device)
         self.model.load_state_dict(checkpoint)
 
         # for param in self.model.parameters():
@@ -412,21 +412,19 @@ class ModelHandler:
             plt.savefig(os.path.join("Images", self.__str_to_filename(self.name+" "+customname)+".png"))  # Save the plot as a PNG file
 
 if __name__ == "__main__":
-    name = "Test 18ns"
+    name = "Test 1low"
     modelhandler = ModelHandler(
         model =        EmotionRecognizerV2,
         batch_size =   64,
-        start_lr =     0.001,
         epochs =       100,
         gamma =        0.5,
-        weight_decay = 0.005,
         min_lr =       0,
         momentum =     0.9,
-        name=name
+        name=name,
+
+        start_lr =     0.01,
+        weight_decay = 0
     )
-    modelhandler.train(stoppage=False)
+    
+    modelhandler.load_model("models/New tests/Test 1/2024-1-8 17_58_24 l1.7846 a0.2 CrossEntropyLoss-SGD-None_lowest_loss Test 1.pt")
     modelhandler.test()
-    print(name)
-    modelhandler.save_model("models/New tests no stoppage/"+name, save_lowest=True)
-    modelhandler.save_excel("New tests no stoppage/"+name)
-    modelhandler.plot_trainvstestloss(save_path=name)
