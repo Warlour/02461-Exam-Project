@@ -69,10 +69,12 @@ class ModelHandler:
         self.__load_data(datapath)
 
         # Functions
-        self.lossfunction = nn.CrossEntropyLoss()
+        class_weights = torch.ones(self.classes) / self.classes
+        class_weights = class_weights.to(self.device)
+        self.lossfunction = nn.CrossEntropyLoss(weight=class_weights)
 
-        #self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
+        #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
 
         self.scheduler = "None"
         # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=epochs, eta_min=min_lr)
@@ -113,7 +115,7 @@ class ModelHandler:
 
             print(f" {idx}/{self.__total_step} | ETA: {eta:.0f}s | Total ETA: {total_eta:.0f}s         ", end="\r")
 
-    def train(self, stoppage: bool = False) -> None:
+    def train(self, stoppage: bool = True) -> None:
         self.__total_step = len(self.__train_loader)
         self.__times = []
 
@@ -412,7 +414,7 @@ class ModelHandler:
             plt.savefig(os.path.join("Images", self.__str_to_filename(self.name+" "+customname)+".png"))  # Save the plot as a PNG file
 
 if __name__ == "__main__":
-    name = "Test 1low"
+    name = "Best model, best parameters, weighted classes"
     modelhandler = ModelHandler(
         model =        EmotionRecognizerV2,
         batch_size =   64,
@@ -422,9 +424,13 @@ if __name__ == "__main__":
         momentum =     0.9,
         name=name,
 
-        start_lr =     0.01,
-        weight_decay = 0
+        start_lr =     0.001,
+        weight_decay = 0.0001
     )
-    
-    modelhandler.load_model("models/New tests/Test 1/2024-1-8 17_58_24 l1.7846 a0.2 CrossEntropyLoss-SGD-None_lowest_loss Test 1.pt")
+
+    #modelhandler.load_model("models/New tests/Test 5/2024-1-8 17_59_55 l1.7765 a0.2 CrossEntropyLoss-Adam-None_lowest_loss Test 5.pt")
+    modelhandler.train(stoppage=True)
     modelhandler.test()
+    modelhandler.save_model("models/Best model best parameters", save_lowest=True)
+    modelhandler.save_excel("models/Best model best parameters")
+    modelhandler.plot_trainvstestloss(save_path="models/Best model best parameters", display_plot=False)
