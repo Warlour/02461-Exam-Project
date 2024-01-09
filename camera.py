@@ -36,6 +36,7 @@ class EmotionCamera:
         largest_face_size = 0
         largest_face_coords = None
 
+        # Detect faces
         for i in range(detections.shape[2]):
             confidence = detections[0, 0, i, 2]
 
@@ -74,56 +75,65 @@ class EmotionCamera:
         last_frame_time = time.time()
 
         preprocessed_images = []
+        emotion_text = ""
         
         while True:
-            # Capture frame from the webcam
-            ret, frame = capture.read()
-            
-            box_frame = self.bounding_box(frame)
-            cv2.imshow('Emotion Recognizer', box_frame)
+            try:
+                # Capture frame from the webcam
+                ret, frame = capture.read()
+                box_frame = self.bounding_box(frame)
 
-            if time.time() - last_frame_time >= 5:
-                # Preprocess the frame
-                grayscale = cv2.cvtColor(box_frame, cv2.COLOR_BGR2GRAY)
-                resized = cv2.resize(grayscale, (48, 48))
-                normalized = resized / 255.0
-                frame_tensor = torch.from_numpy(normalized)
-                frame_tensor = frame_tensor.unsqueeze(0).unsqueeze(0)  # Add extra dimensions for batch size and channels
-                frame_tensor = frame_tensor.float()
-                #print("Preprocessed frame: ", frame_tensor.shape)
+                if time.time() - last_frame_time >= 0.1:
+                    # Preprocess the frame
+                    grayscale = cv2.cvtColor(box_frame, cv2.COLOR_BGR2GRAY)
+                    resized = cv2.resize(grayscale, (48, 48))
+                    normalized = resized / 255.0
+                    frame_tensor = torch.from_numpy(normalized)
+                    frame_tensor = frame_tensor.unsqueeze(0).unsqueeze(0)  # Add extra dimensions for batch size and channels
+                    frame_tensor = frame_tensor.float()
+                    #print("Preprocessed frame: ", frame_tensor.shape)
 
-                preprocessed_images.append(f"image_{image_counter}.png")
-                cv2.imwrite(f'preprocessed_images/image_{image_counter}.png', normalized * 255)
-                image_counter += 1
+                    # Predict emotion
+                    with torch.no_grad():
+                        predictions = self.model(frame_tensor)
+                    
+                    # Get predicted emotion on frame
+                    emotion = torch.argmax(predictions).item()
+                    emotion_text = self.emotion_labels[emotion]
+                    print(emotion_text)
 
-                # Predict emotion
-                with torch.no_grad():
-                    predictions = self.model(frame_tensor)
-                
-                # Get predicted emotion on frame
-                emotion = torch.argmax(predictions).item()
-                emotion_text = self.emotion_labels[emotion]
-                print(emotion_text)
+                    image_counter += 1
+                    img_path = f"image_{emotion_text}{image_counter}.png"
+                    preprocessed_images.append(img_path)
+                    cv2.imwrite(os.path.join('preprocessed_images', img_path), normalized * 255)
+
+                    if len(preprocessed_images) >= 10:
+                        # Delete first index image
+                        os.remove(f"preprocessed_images/{preprocessed_images.pop(0)}")
+                        
+                    # Update last frame time
+                    last_frame_time = time.time()
+
                 # Display on frame
                 cv2.putText(frame, emotion_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                
+                cv2.imshow('Emotion Recognizer', frame)
+                
 
-                if len(preprocessed_images) >= 10:
-                    # Delete first index image
-                    os.remove(f"preprocessed_images/{preprocessed_images.pop(0)}")
-                    
-                # Update last frame time
-                last_frame_time = time.time()
+                cv2.imshow('Bounding box', box_frame)
 
-            if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Emotion Recognizer', cv2.WND_PROP_VISIBLE) < 1:
-                break
-        
+                if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Emotion Recognizer', cv2.WND_PROP_VISIBLE) < 1:
+                    break
+            except cv2.error:
+                print("No face detected")
+            
         capture.release()
         cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     app = EmotionCamera(
-        model=EmotionRecognizerV2,
-        saved_model_path="models/Best model/2024-1-8 17_5_32 l1.2416 a0.6 CrossEntropyLoss-Adam-None_lowest_loss 100V2.pt",
+        model=EmotionRecognizerV4,
+        saved_model_path="models/V4/2024-1-9 22_13_23 lowest_loss.pt",
         emotion_labels=['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
     )
 
