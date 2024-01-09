@@ -33,7 +33,7 @@ class EmotionCamera:
         self.net.setInput(blob)
         detections = self.net.forward()
 
-        largest_face = 0
+        largest_face_size = 0
         largest_face_coords = None
 
         for i in range(detections.shape[2]):
@@ -51,12 +51,13 @@ class EmotionCamera:
 
         if largest_face_coords is not None:
             (startX, startY, endX, endY) = largest_face_coords
-            cv2.rectangle(frame, (startX, startY), (endX, endY), (255, 0, 0), 2)
+            #cv2.rectangle(frame, (startX, startY), (endX, endY), (255, 0, 0), 2)
             cropped_face = frame[startY:endY, startX:endX]
 
-            cv2.imshow('Cropped face', cropped_face)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+            # cv2.imshow('Cropped face', cropped_face)
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+            return cropped_face
         else:
             print("No face detected")
 
@@ -77,12 +78,13 @@ class EmotionCamera:
         while True:
             # Capture frame from the webcam
             ret, frame = capture.read()
-            cv2.imshow('Emotion Recognizer', frame)
             
+            box_frame = self.bounding_box(frame)
+            cv2.imshow('Emotion Recognizer', box_frame)
 
-            if time.time() - last_frame_time >= 1:
+            if time.time() - last_frame_time >= 5:
                 # Preprocess the frame
-                grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                grayscale = cv2.cvtColor(box_frame, cv2.COLOR_BGR2GRAY)
                 resized = cv2.resize(grayscale, (48, 48))
                 normalized = resized / 255.0
                 frame_tensor = torch.from_numpy(normalized)
@@ -125,4 +127,5 @@ if __name__ == "__main__":
         emotion_labels=['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
     )
 
+    # app.bounding_box(cv2.imread('preprocessed_images/image_23.png'))
     app.start()
