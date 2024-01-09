@@ -7,7 +7,10 @@ from time import perf_counter
 import datetime
 import pandas as pd
 import time
+
+# Plots
 import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
 
 # Repeat training
 import multiprocessing, os, subprocess
@@ -421,6 +424,9 @@ class ModelHandler:
             if not os.path.exists(path):
                 os.makedirs(path)
             plt.savefig(os.path.join("Images", self.__str_to_filename(self.name+" "+customname)+".png"))  # Save the plot as a PNG file
+        
+    def plot_confusionmatrix(self, save_plot: bool = True, display_plot: bool = False, save_path: str = "") -> None:
+        pass
 
 if __name__ == "__main__":
     name = "Best model, best parameters, angry class"
@@ -441,6 +447,7 @@ if __name__ == "__main__":
     #modelhandler.load_model("models/New tests/Test 5/2024-1-8 17_59_55 l1.7765 a0.2 CrossEntropyLoss-Adam-None_lowest_loss Test 5.pt")
     modelhandler.train(stoppage=True)
     modelhandler.test()
+
     # modelhandler.save_model("models/Best model best parameters, angry class", save_lowest=True)
     # modelhandler.save_excel("models/Best model best parameters, angry class")
     # modelhandler.plot_trainvstestloss(save_path="models/Best model best parameters, angry class", display_plot=False)
