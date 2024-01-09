@@ -4,13 +4,20 @@ import torch
 from models import EmotionRecognizerV2
 import os
 
+# Use yoloface as bounding box detector
+from yoloface import face_analysis
+
 # Load the trained model
 model = EmotionRecognizerV2(num_classes=7)
-model.load_state_dict(torch.load('models/V3/2024-1-7 16_29_13 l1.6267 a0.4 CrossEntropyLoss-Adam-CosineAnnealingLR.pt', map_location=torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')))
+model_path = "models/Best model/2024-1-8 17_5_32 l1.2416 a0.6 CrossEntropyLoss-Adam-None_lowest_loss 100V2.pt"
+model.load_state_dict(torch.load(model_path, map_location=torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')))
+
+# Set model to evaluation mode for product use
 model.eval()
 
-# Create a VideoCapture object to access the webcam
+# Use webcam as video source
 cap = cv2.VideoCapture(0)
+
 
 emotion_labels = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
 
@@ -30,12 +37,14 @@ while True:
     if time.time() - last_frame_time >= 5:
         # Preprocess the frame
         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        resized_frame = cv2.resize(gray_frame, (32, 32))
+        resized_frame = cv2.resize(gray_frame, (48, 48))
+        #print(resized_frame)
         normalized_frame = resized_frame / 255.0
+        #print(normalized_frame)
         frame_tensor = torch.from_numpy(normalized_frame)
         frame_tensor = frame_tensor.unsqueeze(0).unsqueeze(0)  # Add extra dimensions for batch size and channels
         frame_tensor = frame_tensor.float()
-        print("Preprocessed frame: ", frame_tensor.shape)
+        #print("Preprocessed frame: ", frame_tensor.shape)
 
         cv2.imwrite(f'preprocessed_images/image_{image_counter}.png', resized_frame * 255)
         image_counter += 1
@@ -43,7 +52,7 @@ while True:
         # Perform forward pass and get the predictions
         with torch.no_grad():
             predictions = model(frame_tensor)
-        print(predictions)
+        # print(predictions)
 
         # Display the predicted emotion on the frame
         emotion = torch.argmax(predictions).item()
