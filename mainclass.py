@@ -66,7 +66,8 @@ class ModelHandler:
             "Total training time": [], #
             "Gamma": [self.gamma], #
             "Weight decay": [self.weight_decay], #
-            "Model": [self.model.__class__.__name__] #
+            "Model": [self.model.__class__.__name__], #
+            "Weighted": [weighted], #
         }
 
         # Load data
@@ -135,7 +136,7 @@ class ModelHandler:
         self.__losses = []
         self.__train_losses = []
         self.__validation_losses = []
-        self.__lowest_loss_model = None
+        self.lowest_loss_model = None
 
         # Early Stoppage
         early_stop_counter = 0
@@ -205,7 +206,7 @@ class ModelHandler:
 
                 if validation_loss_avg < best_validation_loss:
                     best_validation_loss = validation_loss_avg
-                    self.__lowest_loss_model = self.model.state_dict()
+                    self.lowest_loss_model = self.model.state_dict()
 
                 # Early stopping
                 if stoppage:
@@ -243,6 +244,8 @@ class ModelHandler:
         self.data["End LR"] = [self.latest_lr]
         self.data["Loss"] = [self.__losses[-1]]
         self.data["Min. loss"] = [min(self.__losses)]
+
+        self.customname = self.__str_to_filename(str(self.data["Date & Time"][0]))
 
     def test(self) -> None:
         self.__all_preds = []
@@ -315,27 +318,25 @@ class ModelHandler:
         return string
 
     def save_model(self, save_path, save_lowest: bool = False) -> None:
-        self.customname = self.__str_to_filename(f'{self.data["Date & Time"][0]} l{self.data["Loss"][0]} a{self.accuracy:.1f} {self.data["Loss function"][0]}-{self.data["Optimizer"][0]}-{self.data["Scheduler"][0]}')
-        path = os.path.join(save_path, self.customname)
-
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-        torch.save(self.model.state_dict(), f"{path}.pt")
+        path = os.path.join(save_path, self.customname)
+
+        torch.save(self.model.state_dict(), os.path.join(save_path, self.customname+".pt"))
         print("Saved model to", save_path)
         if save_lowest:
-            torch.save(self.__lowest_loss_model, f"{path}_lowest_loss {self.name}.pt")
+            torch.save(self.lowest_loss_model, os.path.join(save_path, self.customname+" lowest_loss"+".pt"))
             print("Saved lowest loss model to", save_path)
 
-    def save_excel(self, save_path) -> None:
+    def save_excel(self, save_path: str = "Excel", filename: str = "data") -> None:
         '''
-        Saves the data to an excel file\\
-        Don't add file extension
+        Saves the data to an excel file
 
         param save_path: Directory of the file to save to
+        param filename: Name of the file to save to (Don't add file extension)
         '''
-        save_path = os.path.join("Excel", save_path)
-        file_path = save_path+".xlsx"
+        file_path = os.path.join(save_path, filename+".xlsx")
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
@@ -406,7 +407,7 @@ class ModelHandler:
                                                 batch_size = self.batch_size,
                                                 shuffle = True)
 
-    def plot_trainvstestloss(self, save_plot: bool = True, display_plot: bool = False, save_path: str = "") -> None:
+    def plot_trainvsvalidationloss(self, save_plot: bool = True, display_plot: bool = False, save_path: str = "") -> None:
         if not self.trained and not self.tested:
             print("Please train and test the model first.")
             return
@@ -422,15 +423,12 @@ class ModelHandler:
         plt.legend()
         plt.grid(True)
 
-        customname = f'{self.data["Date & Time"][0]} l{self.data["Loss"][0]} a{self.accuracy:.1f} {self.data["Loss function"][0]}-{self.data["Optimizer"][0]}-{self.data["Scheduler"][0]}'
         if display_plot:
             plt.show()
         if save_plot:
-            path = os.path.join("Images", save_path)
-
-            if not os.path.exists(path):
-                os.makedirs(path)
-            plt.savefig(os.path.join("Images", self.__str_to_filename(self.name+" "+customname)+".png"))  # Save the plot as a PNG file
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            plt.savefig(os.path.join(save_path, self.customname+" train vs validation loss"+".png"))  # Save the plot as a PNG file
         
     def plot_confusionmatrix(self, save_plot: bool = True, display_plot: bool = False, save_path: str = "") -> None:
         if self.tested:
@@ -441,7 +439,7 @@ class ModelHandler:
             plt.ylabel('Actual')
             plt.title('Confusion Matrix')
             if save_plot:
-                plt.savefig(os.path.join(save_path, self.__str_to_filename(self.name+" "+self.customname)+".png"))
+                plt.savefig(os.path.join(save_path, self.customname+" Confusion matrix"+".png"))
 
             if display_plot:
                 plt.show()
@@ -473,5 +471,5 @@ if __name__ == "__main__":
     modelhandler.test()
     modelhandler.save_model(f"models/{name}", save_lowest=True)
     modelhandler.save_excel(f"models/{name}")
-    modelhandler.plot_trainvstestloss(save_path=f"models/{name}", display_plot=False)
+    modelhandler.plot_trainvsvalidationloss(save_path=f"models/{name}", display_plot=False)
     modelhandler.plot_confusionmatrix(save_path=f"models/{name}", display_plot=False)
