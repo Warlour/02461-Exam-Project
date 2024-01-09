@@ -47,7 +47,7 @@ class GUI:
         model_handler.save_excel("training_results")
         
         # Plot the training and validation loss
-        model_handler.plot_trainvstestloss(save_plot=True, display_plot=False)
+        model_handler.plot_trainvsvalidationloss(save_plot=True, display_plot=False)
 
 # Create an instance of the GUI class
 gui = GUI()
