@@ -23,7 +23,7 @@ class EmotionCamera:
     def start(self) -> None:
         capture = cv2.VideoCapture(0)
 
-        og_size = [
+        self.og_size = [
             int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
             int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
         ]
@@ -39,33 +39,32 @@ class EmotionCamera:
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.5], std=[0.5])
         ])
+
+        preprocessed_images = []
         
         while True:
             # Capture frame from the webcam
             ret, frame = capture.read()
+            cv2.imshow('Emotion Recognizer', frame)
             
 
-            if time.time() - last_frame_time >= 5:
-                # Preprocessing of frame
-                pil_img = Image.fromarray(frame)
-                preprocessed = frame_transform(pil_img)
-                preprocessed = preprocessed.unsqueeze(0).to(self.device)
+            if time.time() - last_frame_time >= 1:
+                # Preprocess the frame
+                grayscale = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                resized = cv2.resize(grayscale, (48, 48))
+                normalized = resized / 255.0
+                frame_tensor = torch.from_numpy(normalized)
+                frame_tensor = frame_tensor.unsqueeze(0).unsqueeze(0)  # Add extra dimensions for batch size and channels
+                frame_tensor = frame_tensor.float()
+                #print("Preprocessed frame: ", frame_tensor.shape)
 
-                # Convert to numpy array for display
-                preprocessed_np = preprocessed.cpu().numpy()  # Convert to numpy array
-                preprocessed_np = np.transpose(preprocessed_np, (0, 2, 3, 1))  # (batch, channel, height, width) -> (batch, height, width, channel)
-                preprocessed_np = (preprocessed_np * 255).astype(np.uint8)  # Scale pixels to 0-255
-                preprocessed_np = cv2.resize(preprocessed_np[0], (self.og_size[0], self.og_size[1]))
-                cv2.imshow('Emotion Recognizer', preprocessed_np[0])
-
-                # Denormalize to save image for saving
-                denorm = preprocessed * 0.5 + 0.5 # Mean and std
-                save_image(denorm, f'preprocessed_images/image_{image_counter}.png')
+                preprocessed_images.append(f"image_{image_counter}.png")
+                cv2.imwrite(f'preprocessed_images/image_{image_counter}.png', normalized * 255)
                 image_counter += 1
 
                 # Predict emotion
                 with torch.no_grad():
-                    predictions = self.model(preprocessed)
+                    predictions = self.model(frame_tensor)
                 
                 # Get predicted emotion on frame
                 emotion = torch.argmax(predictions).item()
@@ -74,6 +73,10 @@ class EmotionCamera:
                 # Display on frame
                 cv2.putText(frame, emotion_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
+                if len(preprocessed_images) >= 10:
+                    # Delete first index image
+                    os.remove(f"preprocessed_images/{preprocessed_images.pop(0)}")
+                    
                 # Update last frame time
                 last_frame_time = time.time()
 
