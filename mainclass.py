@@ -449,6 +449,10 @@ class ModelHandler:
             print("Please test the model first.")
 
 if __name__ == "__main__":
+    '''
+    Example usage!!!
+    Use run.py for actual usage
+    '''
     name = "Best model, best parameters, weighted"
     modelhandler = ModelHandler(
         model =        EmotionRecognizerV2,
