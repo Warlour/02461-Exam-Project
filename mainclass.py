@@ -19,6 +19,8 @@ import multiprocessing, os, subprocess
 from models import *
 from datasets import *
 
+from PIL import Image
+
 
 class ModelHandler:
     def __init__(self, model, batch_size: int, start_lr: float, epochs: int, gamma: float, weight_decay: float, min_lr: float, momentum: float,
@@ -129,6 +131,18 @@ class ModelHandler:
 
             print(f" {idx}/{self.__total_step} | ETA: {eta:.0f}s | Total ETA: {total_eta:.0f}s         ", end="\r")
 
+    def __save_images(self, images, epoch, batch_idx):
+        save_dir = f"images/epoch_{epoch}"
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+
+        for idx, image in enumerate(images):
+            image = image.squeeze().cpu().numpy()
+            image = ((image + 1) / 2.0) * 255.0  # Denormalize the image
+            image = Image.fromarray(image.astype('uint8'))
+            image.save(os.path.join(save_dir, f"batch_{batch_idx}_image_{idx}.png"))
+
+
     def train(self, stoppage: bool = True) -> None:
         self.__total_step = len(self.__train_loader)
         self.__times = []
@@ -157,6 +171,9 @@ class ModelHandler:
                         self.__set_lr(self.optimizer, self.min_lr)
 
                 for i, (images, labels) in enumerate(self.__train_loader):
+                    # if epoch == 0 and i == 0:  # Set a suitable save interval
+                    #     self.__save_images(images, epoch, i)
+
                     stepstart = perf_counter()
                     images = images.to(self.device)
                     labels = labels.to(self.device)

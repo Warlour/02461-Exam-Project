@@ -66,24 +66,19 @@ class EmotionCamera:
     def start(self) -> None:
         capture = cv2.VideoCapture(0)
 
-        self.og_size = [
-            int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)),
-            int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        ]
-
         image_counter = 0
         last_frame_time = time.time()
 
         preprocessed_images = []
         emotion_text = ""
-        
+
         while True:
             try:
                 # Capture frame from the webcam
                 ret, frame = capture.read()
                 box_frame = self.bounding_box(frame)
 
-                if time.time() - last_frame_time >= 0.1:
+                if time.time() - last_frame_time >= 0.5:
                     # Preprocess the frame
                     grayscale = cv2.cvtColor(box_frame, cv2.COLOR_BGR2GRAY)
                     resized = cv2.resize(grayscale, (48, 48))
@@ -102,6 +97,9 @@ class EmotionCamera:
                     emotion_text = self.emotion_labels[emotion]
                     print(emotion_text)
 
+                    # Display on frame
+                    cv2.putText(frame, emotion_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+
                     image_counter += 1
                     img_path = f"image_{emotion_text}{image_counter}.png"
                     preprocessed_images.append(img_path)
@@ -114,18 +112,15 @@ class EmotionCamera:
                     # Update last frame time
                     last_frame_time = time.time()
 
-                # Display on frame
-                cv2.putText(frame, emotion_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                
                 
                 cv2.imshow('Emotion Recognizer', frame)
-                
-
                 cv2.imshow('Bounding box', box_frame)
 
                 if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Emotion Recognizer', cv2.WND_PROP_VISIBLE) < 1:
                     break
             except cv2.error:
-                print("No face detected")
+                print("No face detected", end="\r")
             
         capture.release()
         cv2.destroyAllWindows()
