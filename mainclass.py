@@ -24,7 +24,7 @@ from PIL import Image
 
 class ModelHandler:
     def __init__(self, model, batch_size: int, start_lr: float, epochs: int, gamma: float, weight_decay: float, min_lr: float, momentum: float,
-                 datapath: str = "FER2013", name: str = "", weighted: bool = True) -> None:
+                 datapath: str = "FER2013", name: str = "", weighted: bool = True, note: str = "") -> None:
         # Variables
         self.batch_size = batch_size
         self.classes: int = 7
@@ -54,8 +54,11 @@ class ModelHandler:
             "Scheduler": [], #
             "Avg. Time / Epoch": [], #
             "Image dimension": [32], #
-            "Loss": [], #
-            "Min. loss": [], #
+            "Latest training loss": [], #
+            "Min. training loss": [], #
+            "Latest validation loss": [], #
+            "Min. validation loss": [], #
+            "min_lr": [], #
             "Accuracy": [],
             "Dataset": [datapath], #
             "Device": [self.device], #
@@ -70,6 +73,7 @@ class ModelHandler:
             "Weight decay": [self.weight_decay], #
             "Model": [self.model.__class__.__name__], #
             "Weighted": [weighted], #
+            "Note": [note]
         }
 
         # Load data
@@ -79,7 +83,9 @@ class ModelHandler:
         weights = []
         total_samples = sum(samples)
         for sample in samples:
-            weights.append(total_samples/(sample*self.classes))
+            #weights.append(total_samples/(sample*self.classes))
+            # Changing to represent weights as inverse of class frequencies
+            weights.append(total_samples/sample)
 
         weight = torch.tensor(weights).to(self.device)
 
@@ -92,9 +98,9 @@ class ModelHandler:
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
         #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
 
-        #self.scheduler = "None"
+        self.scheduler = "None"
         #self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=epochs, eta_min=min_lr)
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, min_lr=self.min_lr, patience=5, verbose=False)
+        #self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, min_lr=self.min_lr, patience=10, verbose=False)
         #self.scheduler = "AliLR"
 
         if self.scheduler == "AliLR":
@@ -141,7 +147,6 @@ class ModelHandler:
             image = ((image + 1) / 2.0) * 255.0  # Denormalize the image
             image = Image.fromarray(image.astype('uint8'))
             image.save(os.path.join(save_dir, f"batch_{batch_idx}_image_{idx}.png"))
-
 
     def train(self, stoppage: bool = True) -> None:
         self.__total_step = len(self.__train_loader)
@@ -221,6 +226,7 @@ class ModelHandler:
                 validation_loss_avg = validation_loss / len(self.__validation_loader)  # Record the validation loss
                 self.__validation_losses.append(validation_loss_avg)
 
+                # Save lowest loss model
                 if validation_loss_avg < best_validation_loss:
                     best_validation_loss = validation_loss_avg
                     self.lowest_loss_model = self.model.state_dict()
@@ -234,24 +240,32 @@ class ModelHandler:
                         early_stop_counter += 1  # increment counter if test loss does not decrease
 
                     if early_stop_counter > patience_threshold:
-                        print(f"Early stopping triggered at epoch {epoch+1}               ")
+                        print(f"Early stopping triggered after {epoch}                              ")
+                        self.epochs = epoch  # Set epochs to total epochs run
+                        self.data["Epochs"] = [self.epochs]
                         break  # Break out of the training loop
 
                 self.model.train()
 
                 # Save latest learning rate
-                if self.scheduler != "None" and self.scheduler != "AliLR" and self.scheduler.__class__.__name__ != "ReduceLROnPlateau":
-                    self.latest_lr = self.scheduler.get_last_lr()[0]
-                elif self.scheduler == "AliLR":
-                    self.latest_lr = self.__get_lr(self.optimizer)
-                else:
+                if self.scheduler == "None":
                     self.latest_lr = self.start_lr
+
+                elif self.scheduler == "AliLR" or self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
+                    self.latest_lr = self.__get_lr(self.optimizer)
+
+                else:
+                    try:
+                        self.latest_lr = self.scheduler.get_last_lr()[0]
+                    except AttributeError:
+                        self.latest_lr = self.start_lr
+                        print("Unsure what learning rate to save")
 
                 print(f"Epoch [{epoch+1}/{self.epochs}] | Train Loss: {self.__losses[-1]} | Validation Loss: {validation_loss_avg} | Time elapsed: {measure:.2f}s | Learning rate: {self.latest_lr}")
 
                 self.trained = True
         except KeyboardInterrupt:
-            print("Training interrupted, use save_model() to save the latest model and lowest loss model.")
+            print("Training interrupted, use save_model() to save the latest model and lowest loss model.                                    ")
         
         # Data
         ct = datetime.datetime.now()
@@ -259,8 +273,12 @@ class ModelHandler:
         self.data['Total training time'] = [round(sum(self.__times), 1)]
         self.data["Avg. Time / Epoch"] = [round(sum(self.__times)/len(self.__times), 1)]
         self.data["End LR"] = [self.latest_lr]
-        self.data["Loss"] = [self.__losses[-1]]
-        self.data["Min. loss"] = [min(self.__losses)]
+        self.data["Latest training loss"] = [self.__losses[-1]]
+        self.data["Min. training loss"] = [min(self.__losses)]
+        self.data["Latest validation loss"] = [validation_loss_avg]
+        # Set min. validation loss to have value of same index as min. training loss
+        self.data["Min. validation loss"] = [self.__validation_losses[self.__losses.index(min(self.__losses))]]
+        self.data["min_lr"] = [self.min_lr]
 
         self.customname = self.__str_to_filename(str(self.data["Date & Time"][0]))
 
@@ -377,11 +395,6 @@ class ModelHandler:
         print("Wrote to Excel")
 
     def __load_data(self, root) -> None:
-        # all_transforms = transforms.Compose([transforms.Resize((32, 32)),
-        #                              transforms.ToTensor(),
-        #                              transforms.Normalize(mean=[0.5],
-        #                                                   std=[0.5])
-        #                             ])
         train_transforms = transforms.Compose([
             transforms.Resize((48, 48)),
             transforms.RandomHorizontalFlip(),  # Randomly flip images horizontally
