@@ -4,7 +4,7 @@ from torchvision.io import read_image
 from torchvision import transforms
 
 class SubfoldersDataset(VisionDataset):
-    def __init__(self, root, filetype: str, classes: list, transform=None, target_transform=None):
+    def __init__(self, root, filetype: str, classes: list, transform=None, target_transform=None, oversample: bool = False):
         super(self.__class__, self).__init__(root, transform=transform, target_transform=target_transform)
         self.root = root
         self.transform = transform
@@ -82,6 +82,3 @@ class FolderDataset(VisionDataset):
             label = self.target_transform(label)
 
         return img, label
-
-if __name__ == "__main__":
-    train_dataset = SubfoldersDataset(root=f'data/FER2013/train', filetype="jpg", classes=["angry", "disgust",], transform=train_transforms)

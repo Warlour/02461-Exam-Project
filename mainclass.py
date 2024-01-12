@@ -19,10 +19,12 @@ import multiprocessing, os, subprocess
 from models import *
 from datasets import *
 
+from PIL import Image
+
 
 class ModelHandler:
     def __init__(self, model, batch_size: int, start_lr: float, epochs: int, gamma: float, weight_decay: float, min_lr: float, momentum: float,
-                 datapath: str = "FER2013", name: str = "", weighted: bool = True) -> None:
+                 datapath: str = "FER2013", name: str = "", weighted: bool = True, note: str = "") -> None:
         # Variables
         self.batch_size = batch_size
         self.classes: int = 7
@@ -52,8 +54,11 @@ class ModelHandler:
             "Scheduler": [], #
             "Avg. Time / Epoch": [], #
             "Image dimension": [32], #
-            "Loss": [], #
-            "Min. loss": [], #
+            "Latest training loss": [], #
+            "Min. training loss": [], #
+            "Latest validation loss": [], #
+            "Min. validation loss": [], #
+            "min_lr": [], #
             "Accuracy": [],
             "Dataset": [datapath], #
             "Device": [self.device], #
@@ -66,7 +71,9 @@ class ModelHandler:
             "Total training time": [], #
             "Gamma": [self.gamma], #
             "Weight decay": [self.weight_decay], #
-            "Model": [self.model.__class__.__name__] #
+            "Model": [self.model.__class__.__name__], #
+            "Weighted": [weighted], #
+            "Note": [note]
         }
 
         # Load data
@@ -76,7 +83,9 @@ class ModelHandler:
         weights = []
         total_samples = sum(samples)
         for sample in samples:
-            weights.append(total_samples/(sample*self.classes))
+            #weights.append(total_samples/(sample*self.classes))
+            # Changing to represent weights as inverse of class frequencies
+            weights.append(total_samples/sample)
 
         weight = torch.tensor(weights).to(self.device)
 
@@ -90,9 +99,9 @@ class ModelHandler:
         self.optimizer = torch.optim.RAdam(self.model.parameters (),lr=self.start_lr, weight_decay=self.weight_decay)
         #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
 
-        # self.scheduler = "None"
-        # self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=epochs, eta_min=min_lr)
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', factor=self.gamma, patience=5, verbose=False)
+        self.scheduler = "None"
+        #self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=epochs, eta_min=min_lr)
+        #self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, min_lr=self.min_lr, patience=10, verbose=False)
         #self.scheduler = "AliLR"
 
         if self.scheduler == "AliLR":
@@ -129,6 +138,17 @@ class ModelHandler:
 
             print(f" {idx}/{self.__total_step} | ETA: {eta:.0f}s | Total ETA: {total_eta:.0f}s         ", end="\r")
 
+    def __save_images(self, images, epoch, batch_idx):
+        save_dir = f"images/epoch_{epoch}"
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+
+        for idx, image in enumerate(images):
+            image = image.squeeze().cpu().numpy()
+            image = ((image + 1) / 2.0) * 255.0  # Denormalize the image
+            image = Image.fromarray(image.astype('uint8'))
+            image.save(os.path.join(save_dir, f"batch_{batch_idx}_image_{idx}.png"))
+
     def train(self, stoppage: bool = True) -> None:
         self.__total_step = len(self.__train_loader)
         self.__times = []
@@ -136,7 +156,7 @@ class ModelHandler:
         self.__losses = []
         self.__train_losses = []
         self.__validation_losses = []
-        self.__lowest_loss_model = None
+        self.lowest_loss_model = None
 
         # Early Stoppage
         early_stop_counter = 0
@@ -157,6 +177,9 @@ class ModelHandler:
                         self.__set_lr(self.optimizer, self.min_lr)
 
                 for i, (images, labels) in enumerate(self.__train_loader):
+                    # if epoch == 0 and i == 0:  # Set a suitable save interval
+                    #     self.__save_images(images, epoch, i)
+
                     stepstart = perf_counter()
                     images = images.to(self.device)
                     labels = labels.to(self.device)
@@ -207,9 +230,10 @@ class ModelHandler:
                 if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
                     self.scheduler.step(validation_loss_avg)
 
+                # Save lowest loss model
                 if validation_loss_avg < best_validation_loss:
                     best_validation_loss = validation_loss_avg
-                    self.__lowest_loss_model = self.model.state_dict()
+                    self.lowest_loss_model = self.model.state_dict()
 
                 # Early stopping
                 if stoppage:
@@ -220,24 +244,32 @@ class ModelHandler:
                         early_stop_counter += 1  # increment counter if test loss does not decrease
 
                     if early_stop_counter > patience_threshold:
-                        print(f"Early stopping triggered at epoch {epoch+1}               ")
+                        print(f"Early stopping triggered after {epoch}                              ")
+                        self.epochs = epoch  # Set epochs to total epochs run
+                        self.data["Epochs"] = [self.epochs]
                         break  # Break out of the training loop
 
                 self.model.train()
 
                 # Save latest learning rate
-                if self.scheduler != "None" and self.scheduler != "AliLR" and self.scheduler.__class__.__name__ != "ReduceLROnPlateau":
-                    self.latest_lr = self.scheduler.get_last_lr()[0]
-                elif self.scheduler == "AliLR":
-                    self.latest_lr = self.__get_lr(self.optimizer)
-                else:
+                if self.scheduler == "None":
                     self.latest_lr = self.start_lr
+
+                elif self.scheduler == "AliLR" or self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
+                    self.latest_lr = self.__get_lr(self.optimizer)
+
+                else:
+                    try:
+                        self.latest_lr = self.scheduler.get_last_lr()[0]
+                    except AttributeError:
+                        self.latest_lr = self.start_lr
+                        print("Unsure what learning rate to save")
 
                 print(f"Epoch [{epoch+1}/{self.epochs}] | Train Loss: {self.__losses[-1]} | Validation Loss: {validation_loss_avg} | Time elapsed: {measure:.2f}s | Learning rate: {self.latest_lr}")
 
                 self.trained = True
         except KeyboardInterrupt:
-            print("Training interrupted, use save_model() to save the latest model and lowest loss model.")
+            print("Training interrupted, use save_model() to save the latest model and lowest loss model.                                    ")
         
         # Data
         ct = datetime.datetime.now()
@@ -245,8 +277,14 @@ class ModelHandler:
         self.data['Total training time'] = [round(sum(self.__times), 1)]
         self.data["Avg. Time / Epoch"] = [round(sum(self.__times)/len(self.__times), 1)]
         self.data["End LR"] = [self.latest_lr]
-        self.data["Loss"] = [self.__losses[-1]]
-        self.data["Min. loss"] = [min(self.__losses)]
+        self.data["Latest training loss"] = [self.__losses[-1]]
+        self.data["Min. training loss"] = [min(self.__losses)]
+        self.data["Latest validation loss"] = [validation_loss_avg]
+        # Set min. validation loss to have value of same index as min. training loss
+        self.data["Min. validation loss"] = [self.__validation_losses[self.__losses.index(min(self.__losses))]]
+        self.data["min_lr"] = [self.min_lr]
+
+        self.customname = self.__str_to_filename(str(self.data["Date & Time"][0]))
 
     def test(self) -> None:
         self.__all_preds = []
@@ -319,27 +357,25 @@ class ModelHandler:
         return string
 
     def save_model(self, save_path, save_lowest: bool = False) -> None:
-        self.customname = self.__str_to_filename(f'{self.data["Date & Time"][0]} l{self.data["Loss"][0]} a{self.accuracy:.1f} {self.data["Loss function"][0]}-{self.data["Optimizer"][0]}-{self.data["Scheduler"][0]}')
-        path = os.path.join(save_path, self.customname)
-
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
-        torch.save(self.model.state_dict(), f"{path}.pt")
+        path = os.path.join(save_path, self.customname)
+
+        torch.save(self.model.state_dict(), os.path.join(save_path, self.customname+".pt"))
         print("Saved model to", save_path)
         if save_lowest:
-            torch.save(self.__lowest_loss_model, f"{path}_lowest_loss {self.name}.pt")
+            torch.save(self.lowest_loss_model, os.path.join(save_path, self.customname+" lowest_loss"+".pt"))
             print("Saved lowest loss model to", save_path)
 
-    def save_excel(self, save_path) -> None:
+    def save_excel(self, save_path: str = "Excel", filename: str = "data") -> None:
         '''
-        Saves the data to an excel file\\
-        Don't add file extension
+        Saves the data to an excel file
 
         param save_path: Directory of the file to save to
+        param filename: Name of the file to save to (Don't add file extension)
         '''
-        save_path = os.path.join("Excel", save_path)
-        file_path = save_path+".xlsx"
+        file_path = os.path.join(save_path, filename+".xlsx")
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 
@@ -363,11 +399,6 @@ class ModelHandler:
         print("Wrote to Excel")
 
     def __load_data(self, root) -> None:
-        # all_transforms = transforms.Compose([transforms.Resize((32, 32)),
-        #                              transforms.ToTensor(),
-        #                              transforms.Normalize(mean=[0.5],
-        #                                                   std=[0.5])
-        #                             ])
         train_transforms = transforms.Compose([
             transforms.Resize((48, 48)),
             transforms.RandomHorizontalFlip(),  # Randomly flip images horizontally
@@ -410,7 +441,7 @@ class ModelHandler:
                                                 batch_size = self.batch_size,
                                                 shuffle = True)
 
-    def plot_trainvstestloss(self, save_plot: bool = True, display_plot: bool = False, save_path: str = "") -> None:
+    def plot_trainvsvalidationloss(self, save_plot: bool = True, display_plot: bool = False, save_path: str = "") -> None:
         if not self.trained and not self.tested:
             print("Please train and test the model first.")
             return
@@ -426,15 +457,12 @@ class ModelHandler:
         plt.legend()
         plt.grid(True)
 
-        customname = f'{self.data["Date & Time"][0]} l{self.data["Loss"][0]} a{self.accuracy:.1f} {self.data["Loss function"][0]}-{self.data["Optimizer"][0]}-{self.data["Scheduler"][0]}'
         if display_plot:
             plt.show()
         if save_plot:
-            path = os.path.join("Images", save_path)
-
-            if not os.path.exists(path):
-                os.makedirs(path)
-            plt.savefig(os.path.join("Images", self.__str_to_filename(self.name+" "+customname)+".png"))  # Save the plot as a PNG file
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            plt.savefig(os.path.join(save_path, self.customname+" train vs validation loss"+".png"))  # Save the plot as a PNG file
         
     def plot_confusionmatrix(self, save_plot: bool = True, display_plot: bool = False, save_path: str = "") -> None:
         if self.tested:
@@ -445,7 +473,7 @@ class ModelHandler:
             plt.ylabel('Actual')
             plt.title('Confusion Matrix')
             if save_plot:
-                plt.savefig(os.path.join(save_path, self.__str_to_filename(self.name+" "+self.customname)+".png"))
+                plt.savefig(os.path.join(save_path, self.customname+" Confusion matrix"+".png"))
 
             if display_plot:
                 plt.show()
@@ -477,5 +505,5 @@ if __name__ == "__main__":
     modelhandler.test()
     modelhandler.save_model(f"models/{name}", save_lowest=True)
     modelhandler.save_excel(f"models/{name}")
-    modelhandler.plot_trainvstestloss(save_path=f"models/{name}", display_plot=False)
+    modelhandler.plot_trainvsvalidationloss(save_path=f"models/{name}", display_plot=False)
     modelhandler.plot_confusionmatrix(save_path=f"models/{name}", display_plot=False)
