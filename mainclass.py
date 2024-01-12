@@ -79,23 +79,25 @@ class ModelHandler:
         # Load data
         self.__load_data(datapath)
 
-        samples = [3496, 382, 3585, 6314, 4345, 4227, 2775]
-        weights = []
-        total_samples = sum(samples)
-        for sample in samples:
-            #weights.append(total_samples/(sample*self.classes))
-            # Changing to represent weights as inverse of class frequencies
-            weights.append(total_samples/sample)
-
-        weight = torch.tensor(weights).to(self.device)
+        
 
         # Functions
         if weighted:
+            samples = [3496, 382, 3585, 6314, 4345, 4227, 2775]
+            weights = []
+            total_samples = sum(samples)
+            for sample in samples:
+                #weights.append(total_samples/sample)
+                # Changing to represent weights as inverse of class frequencies
+                weights.append(total_samples/sample)
+
+            weight = torch.tensor(weights).to(self.device)
             self.lossfunction = nn.CrossEntropyLoss(weight=weight)
         else:
             self.lossfunction = nn.CrossEntropyLoss()
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
+        #self.optimizer = torch.optim.RAdam(self.model.parameters(),lr=self.start_lr, weight_decay=self.weight_decay)
         #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
 
         self.scheduler = "None"
@@ -193,16 +195,16 @@ class ModelHandler:
                     # Scheduler step
                     if self.scheduler != "None" and self.scheduler != "AliLR" and self.scheduler.__class__.__name__ != "ReduceLROnPlateau":
                         self.scheduler.step()
-                    
+                    """
                     # IF ReduceLROnPlateau
                     if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
                         #val_loss =
                         self.scheduler.step(metrics=validation_loss)
-                    
+                    """
                     stepend = perf_counter()
                     steptimes.append(stepend - stepstart)
 
-                    # Calculate Epoch ETA and Total ETA and print
+                    # Cal culate Epoch ETA and Total ETA and print
                     self.__print_eta(idx=i, times=steptimes, epoch=epoch, start=start, stepend=stepend)
 
                 end = perf_counter()
@@ -225,6 +227,9 @@ class ModelHandler:
                 
                 validation_loss_avg = validation_loss / len(self.__validation_loader)  # Record the validation loss
                 self.__validation_losses.append(validation_loss_avg)
+                # IF ReduceLROnPlateau
+                if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
+                    self.scheduler.step(validation_loss_avg)
 
                 # Save lowest loss model
                 if validation_loss_avg < best_validation_loss:
