@@ -123,6 +123,7 @@ class ModelHandler:
 
     def __print_eta(self, idx, times: list, epoch: int, start, stepend) -> float:
         if idx % 30 == 0 and idx > 0: # Print every 30 steps
+            # Calculate moving average
             avg_steptime = sum(times) / len(times)
             remaining_steps_current_epoch = self.__total_step - idx
             remaining_steps_total = remaining_steps_current_epoch + self.__total_step * (self.epochs - epoch - 1)
@@ -195,19 +196,16 @@ class ModelHandler:
                     # Scheduler step
                     if self.scheduler != "None" and self.scheduler != "AliLR" and self.scheduler.__class__.__name__ != "ReduceLROnPlateau":
                         self.scheduler.step()
-                    """
-                    """
+
                     # IF ReduceLROnPlateau
-                    if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
+                    elif self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
                         #val_loss =
                         self.scheduler.step(metrics=validation_loss)
-                    """
-                    """
+
                     stepend = perf_counter()
                     steptimes.append(stepend - stepstart)
 
-                    # Cal culate Epoch ETA and Total ETA and print
-                    # Cal culate Epoch ETA and Total ETA and print
+                    # Calculate Epoch ETA and Total ETA and print
                     self.__print_eta(idx=i, times=steptimes, epoch=epoch, start=start, stepend=stepend)
 
                 end = perf_counter()
@@ -353,9 +351,7 @@ class ModelHandler:
     def load_model(self, file_path: str) -> None:
         checkpoint = torch.load(file_path, map_location=self.device)
         self.model.load_state_dict(checkpoint)
-
-        # for param in self.model.parameters():
-        #    param.requires_grad = False
+        self.trained = True
 
     def __str_to_filename(self, string: str):
         invalid_chars = ['\\', ':', '?', '<', '>', '|']
