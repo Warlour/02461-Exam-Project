@@ -196,14 +196,17 @@ class ModelHandler:
                     if self.scheduler != "None" and self.scheduler != "AliLR" and self.scheduler.__class__.__name__ != "ReduceLROnPlateau":
                         self.scheduler.step()
                     """
+                    """
                     # IF ReduceLROnPlateau
                     if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
                         #val_loss =
                         self.scheduler.step(metrics=validation_loss)
                     """
+                    """
                     stepend = perf_counter()
                     steptimes.append(stepend - stepstart)
 
+                    # Cal culate Epoch ETA and Total ETA and print
                     # Cal culate Epoch ETA and Total ETA and print
                     self.__print_eta(idx=i, times=steptimes, epoch=epoch, start=start, stepend=stepend)
 
@@ -227,6 +230,9 @@ class ModelHandler:
                 
                 validation_loss_avg = validation_loss / len(self.__validation_loader)  # Record the validation loss
                 self.__validation_losses.append(validation_loss_avg)
+                # IF ReduceLROnPlateau
+                if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
+                    self.scheduler.step(validation_loss_avg)
                 # IF ReduceLROnPlateau
                 if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
                     self.scheduler.step(validation_loss_avg)
@@ -488,10 +494,10 @@ if __name__ == "__main__":
     '''
     name = "Best model, best parameters, weighted"
     modelhandler = ModelHandler(
-        model =        EmotionRecognizerV2,
+        model =        EmotionRecognizerV4,
         weighted =     True,
         batch_size =   64,
-        epochs =       100,
+        epochs =       20,
         gamma =        0.5,
         min_lr =       0,
         momentum =     0.9,
