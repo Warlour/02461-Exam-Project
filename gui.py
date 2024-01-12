@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import messagebox
 from mainclass import ModelHandler
 
+# Not fully developed
+
 class GUI:
     def __init__(self):
         self.window = tk.Tk()
