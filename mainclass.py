@@ -79,23 +79,25 @@ class ModelHandler:
         # Load data
         self.__load_data(datapath)
 
-        samples = [3496, 382, 3585, 6314, 4345, 4227, 2775]
-        weights = []
-        total_samples = sum(samples)
-        for sample in samples:
-            #weights.append(total_samples/(sample*self.classes))
-            # Changing to represent weights as inverse of class frequencies
-            weights.append(total_samples/sample)
-
-        weight = torch.tensor(weights).to(self.device)
+        
 
         # Functions
         if weighted:
+            samples = [3496, 382, 3585, 6314, 4345, 4227, 2775]
+            weights = []
+            total_samples = sum(samples)
+            for sample in samples:
+                #weights.append(total_samples/sample)
+                # Changing to represent weights as inverse of class frequencies
+                weights.append(total_samples/sample)
+
+            weight = torch.tensor(weights).to(self.device)
             self.lossfunction = nn.CrossEntropyLoss(weight=weight)
         else:
             self.lossfunction = nn.CrossEntropyLoss()
 
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay)
+        #self.optimizer = torch.optim.RAdam(self.model.parameters(),lr=self.start_lr, weight_decay=self.weight_decay)
         #self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.start_lr, weight_decay=self.weight_decay, momentum=self.momentum)
 
         self.scheduler = "None"
@@ -121,6 +123,7 @@ class ModelHandler:
 
     def __print_eta(self, idx, times: list, epoch: int, start, stepend) -> float:
         if idx % 30 == 0 and idx > 0: # Print every 30 steps
+            # Calculate moving average
             avg_steptime = sum(times) / len(times)
             remaining_steps_current_epoch = self.__total_step - idx
             remaining_steps_total = remaining_steps_current_epoch + self.__total_step * (self.epochs - epoch - 1)
@@ -193,12 +196,12 @@ class ModelHandler:
                     # Scheduler step
                     if self.scheduler != "None" and self.scheduler != "AliLR" and self.scheduler.__class__.__name__ != "ReduceLROnPlateau":
                         self.scheduler.step()
-                    
+
                     # IF ReduceLROnPlateau
-                    if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
+                    elif self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
                         #val_loss =
                         self.scheduler.step(metrics=validation_loss)
-                    
+
                     stepend = perf_counter()
                     steptimes.append(stepend - stepstart)
 
@@ -225,6 +228,12 @@ class ModelHandler:
                 
                 validation_loss_avg = validation_loss / len(self.__validation_loader)  # Record the validation loss
                 self.__validation_losses.append(validation_loss_avg)
+                # IF ReduceLROnPlateau
+                if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
+                    self.scheduler.step(validation_loss_avg)
+                # IF ReduceLROnPlateau
+                if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
+                    self.scheduler.step(validation_loss_avg)
 
                 # Save lowest loss model
                 if validation_loss_avg < best_validation_loss:
@@ -342,9 +351,7 @@ class ModelHandler:
     def load_model(self, file_path: str) -> None:
         checkpoint = torch.load(file_path, map_location=self.device)
         self.model.load_state_dict(checkpoint)
-
-        # for param in self.model.parameters():
-        #    param.requires_grad = False
+        self.trained = True
 
     def __str_to_filename(self, string: str):
         invalid_chars = ['\\', ':', '?', '<', '>', '|']
@@ -483,10 +490,10 @@ if __name__ == "__main__":
     '''
     name = "Best model, best parameters, weighted"
     modelhandler = ModelHandler(
-        model =        EmotionRecognizerV2,
+        model =        EmotionRecognizerV4,
         weighted =     True,
         batch_size =   64,
-        epochs =       100,
+        epochs =       20,
         gamma =        0.5,
         min_lr =       0,
         momentum =     0.9,

@@ -7,12 +7,12 @@ from torchvision.utils import save_image
 
 from models import *
 from PIL import Image
-
+import random
 
 class EmotionCamera:
-    def __init__(self, model, saved_model_path: str, emotion_labels: str) -> None:
+    def __init__(self, model, saved_model_path: str, emotion_labels: list) -> None:
         self.saved_model_path = saved_model_path
-        self.emotion_labels = emotion_labels
+        self.emotion_labels: list = emotion_labels
         self.model = model(num_classes=len(emotion_labels))
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.model.load_state_dict(torch.load(saved_model_path, map_location=self.device))
@@ -64,13 +64,13 @@ class EmotionCamera:
 
 
     def start(self) -> None:
-        capture = cv2.VideoCapture(0)
-
-        image_counter = 0
-        last_frame_time = time.time()
-
-        preprocessed_images = []
         emotion_text = ""
+
+        capture = cv2.VideoCapture(0)
+        image_counter = 0
+        preprocessed_images = []
+
+        last_frame_time = time.time()
 
         while True:
             try:
@@ -78,7 +78,7 @@ class EmotionCamera:
                 ret, frame = capture.read()
                 box_frame = self.bounding_box(frame)
 
-                if time.time() - last_frame_time >= 0.5:
+                if time.time() - last_frame_time >= 2:
                     # Preprocess the frame
                     grayscale = cv2.cvtColor(box_frame, cv2.COLOR_BGR2GRAY)
                     resized = cv2.resize(grayscale, (48, 48))
@@ -86,34 +86,28 @@ class EmotionCamera:
                     frame_tensor = torch.from_numpy(normalized)
                     frame_tensor = frame_tensor.unsqueeze(0).unsqueeze(0)  # Add extra dimensions for batch size and channels
                     frame_tensor = frame_tensor.float()
-                    #print("Preprocessed frame: ", frame_tensor.shape)
 
                     # Predict emotion
                     with torch.no_grad():
                         predictions = self.model(frame_tensor)
                     
                     # Get predicted emotion on frame
-                    emotion = torch.argmax(predictions).item()
-                    emotion_text = self.emotion_labels[emotion]
-                    print(emotion_text)
-
-                    # Display on frame
-                    cv2.putText(frame, emotion_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                    guessed_emotion = torch.argmax(predictions).item()
+                    guessed_emotion_text: str = self.emotion_labels[guessed_emotion]
+                    print(f"Guessed emotion: {guessed_emotion_text}")
 
                     image_counter += 1
                     img_path = f"image_{emotion_text}{image_counter}.png"
                     preprocessed_images.append(img_path)
                     cv2.imwrite(os.path.join('preprocessed_images', img_path), normalized * 255)
 
-                    if len(preprocessed_images) >= 10:
+                    if len(preprocessed_images) >= 100:
                         # Delete first index image
-                        os.remove(f"preprocessed_images/{preprocessed_images.pop(0)}")
+                        os.remove(os.path.join('preprocessed_images', preprocessed_images.pop(0)))
                         
                     # Update last frame time
                     last_frame_time = time.time()
 
-                
-                
                 cv2.imshow('Emotion Recognizer', frame)
                 cv2.imshow('Bounding box', box_frame)
 
@@ -125,10 +119,15 @@ class EmotionCamera:
         capture.release()
         cv2.destroyAllWindows()
 
+        # correct = sum([1 for i, j in zip(self.actual_emotions, self.guessed_emotions) if i == j])
+        # total = len(self.actual_emotions)
+        # accuracy = correct / total
+        # print(accuracy)
+
 if __name__ == "__main__":
     app = EmotionCamera(
-        model=EmotionRecognizerV4,
-        saved_model_path="models/V4/2024-1-9 22_13_23 lowest_loss.pt",
+        model=EmotionRecognizerV5,
+        saved_model_path="models/Optimering/2024-1-10 21_52_2.pt",
         emotion_labels=['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
     )
 

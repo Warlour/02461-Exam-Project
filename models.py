@@ -358,8 +358,8 @@ class EmotionRecognizerV6(nn.Module):
         self.conv6 = nn.Conv2d(256, 256, kernel_size=3, padding=1)
         self.bn3 = nn.BatchNorm2d(256)
 
-        self.fc1 = nn.Linear(1024, 512)
-        self.fc2 = nn.Linear(512, num_classes)
+        self.fc1 = nn.Linear(6400, 4096)
+        self.fc2 = nn.Linear(4096, num_classes)
 
         self.dropout = nn.Dropout(0.5)
 
