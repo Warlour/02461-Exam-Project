@@ -4,6 +4,10 @@ import torch.nn.functional as F
 
 class EmotionRecognizerV1(nn.Module):
     def __init__(self, num_classes, rgb=False):
+        '''
+        param num_classes: The number of classes to predict
+        param rgb: Whether to use rgb or grayscale
+        '''
         self.FCS = 2
         self.CONVS = 4
         self.MAXPOOLS = 2
@@ -44,6 +48,10 @@ class EmotionRecognizerV1(nn.Module):
 # Simple model
 class SimpleEmotionRecognizer(nn.Module):
     def __init__(self, num_classes, rgb=False):
+        '''
+        param num_classes: The number of classes to predict
+        param rgb: Whether to use rgb or grayscale
+        '''
         self.FCS = 2
         self.CONVS = 2
         self.MAXPOOLS = 2
@@ -74,6 +82,10 @@ class SimpleEmotionRecognizer(nn.Module):
 
 class EmotionRecognizerV2(nn.Module):
     def __init__(self, num_classes, rgb=False):
+        '''
+        param num_classes: The number of classes to predict
+        param rgb: Whether to use rgb or grayscale
+        '''
         self.FCS = 2
         self.CONVS = 4
         self.MAXPOOLS = 2
@@ -116,6 +128,10 @@ class EmotionRecognizerV2(nn.Module):
 
 class EmotionRecognizerV3(nn.Module):
     def __init__(self, num_classes, rgb=False):
+        '''
+        param num_classes: The number of classes to predict
+        param rgb: Whether to use rgb or grayscale
+        '''
         self.FCS = 2
         self.CONVS = 4
         self.MAXPOOLS = 2
@@ -158,6 +174,10 @@ class EmotionRecognizerV3(nn.Module):
 
 class EmotionRecognizerV4(nn.Module):
     def __init__(self, num_classes, rgb=False):
+        '''
+        param num_classes: The number of classes to predict
+        param rgb: Whether to use rgb or grayscale
+        '''
         self.FCS = 2
         self.CONVS = 8
         self.MAXPOOLS = 4
@@ -218,6 +238,10 @@ class EmotionRecognizerV4(nn.Module):
 
 class EmotionRecognizerV5(nn.Module):
     def __init__(self, num_classes, rgb=False):
+        '''
+        param num_classes: The number of classes to predict
+        param rgb: Whether to use rgb or grayscale
+        '''
         self.FCS = 2
         self.CONVS = 8
         self.MAXPOOLS = 4
@@ -278,6 +302,10 @@ class EmotionRecognizerV5(nn.Module):
     
 class EmotionRecognizerV5_2(nn.Module):
     def __init__(self, num_classes, rgb=False):
+        '''
+        param num_classes: The number of classes to predict
+        param rgb: Whether to use rgb or grayscale
+        '''
         self.FCS = 2
         self.CONVS = 8
         self.MAXPOOLS = 4
@@ -338,6 +366,10 @@ class EmotionRecognizerV5_2(nn.Module):
     
 class EmotionRecognizerV6(nn.Module):
     def __init__(self, num_classes, rgb=False):
+        '''
+        param num_classes: The number of classes to predict
+        param rgb: Whether to use rgb or grayscale
+        '''
         self.FCS = 2
         self.CONVS = 6
         self.MAXPOOLS = 3

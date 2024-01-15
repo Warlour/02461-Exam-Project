@@ -24,7 +24,22 @@ from PIL import Image
 
 class ModelHandler:
     def __init__(self, model, batch_size: int, start_lr: float, epochs: int, gamma: float, weight_decay: float, min_lr: float, momentum: float,
-                 datapath: str = "FER2013", name: str = "", weighted: bool = True, note: str = "") -> None:
+                 datapath: str = "FER2013", weighted: bool = True, note: str = "") -> None:
+        '''
+        Initializes the model handler.
+
+        param model: The model class to use
+        param batch_size: The batch size to use
+        param start_lr: The starting learning rate
+        param epochs: The number of epochs to train for
+        param gamma: The gamma value to use for the scheduler (Only for AliLR)
+        param weight_decay: The weight decay to use for the optimizer
+        param min_lr: The minimum learning rate to use for the scheduler
+        param momentum: The momentum to use for the optimizer
+        param datapath: The path to the dataset (root)
+        param weighted: Whether to use weighted loss function
+        param note: A note to add to the excel file
+        '''
         # Variables
         self.batch_size = batch_size
         self.classes: int = 7
@@ -34,7 +49,6 @@ class ModelHandler:
         self.weight_decay = weight_decay
         self.min_lr = min_lr
         self.momentum = momentum
-        self.name = name
 
         # To be changed data
         self.accuracy = -1
@@ -153,6 +167,11 @@ class ModelHandler:
             image.save(os.path.join(save_dir, f"batch_{batch_idx}_image_{idx}.png"))
 
     def train(self, stoppage: bool = True) -> None:
+        '''
+        Trains the initialized model.
+
+        param stoppage: Whether to use early stoppage
+        '''
         self.__total_step = len(self.__train_loader)
         self.__times = []
 
@@ -293,6 +312,9 @@ class ModelHandler:
         self.customname = self.__str_to_filename(str(self.data["Date & Time"][0]))
 
     def test(self) -> None:
+        '''
+        Tests a models accuracy using the test dataset
+        '''
         self.__all_preds = []
         self.__all_labels = []
 
@@ -327,6 +349,11 @@ class ModelHandler:
             self.save_excel(f"Excel/{process}_{excel_path}.xlsx")
 
     def repeat_train(self, total: int, max_processes: int, delay: int, test: bool, save: bool, model_path: str, excel_path: str) -> None:
+        '''
+        Discontinued.
+
+        Allows for repeating a training process multiple times.
+        '''
         processes = []
         finished, current = 0
 
@@ -350,6 +377,11 @@ class ModelHandler:
         print("Finished all processes")
 
     def load_model(self, file_path: str) -> None:
+        '''
+        Loads a saved model containing a state_dict
+
+        param file_path: File path of the model to load
+        '''
         checkpoint = torch.load(file_path, map_location=self.device)
         self.model.load_state_dict(checkpoint)
         self.trained = True
@@ -361,6 +393,12 @@ class ModelHandler:
         return string
 
     def save_model(self, save_path, save_lowest: bool = False) -> None:
+        '''
+        Saves the model to .pt file.
+
+        param save_path: Directory of the file to save to
+        param save_lowest: Whether to save the lowest loss model
+        '''
         if not os.path.exists(save_path):
             os.makedirs(save_path)
 

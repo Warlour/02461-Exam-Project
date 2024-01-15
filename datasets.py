@@ -4,7 +4,16 @@ from torchvision.io import read_image
 from torchvision import transforms
 
 class SubfoldersDataset(VisionDataset):
-    def __init__(self, root, filetype: str, classes: list, transform=None, target_transform=None, oversample: bool = False):
+    def __init__(self, root, filetype: str, classes: list, transform=None, target_transform=None):
+        '''
+        Creates a dataset from subfolders as classes in root directory.
+
+        param: root: The root directory of the dataset
+        param: filetype: The filetype of the images
+        param: classes: The classes of the dataset
+        param: transform: The transforms to apply to the images
+        param: target_transform: The transforms to apply to the labels
+        '''
         super(self.__class__, self).__init__(root, transform=transform, target_transform=target_transform)
         self.root = root
         self.transform = transform
@@ -47,6 +56,13 @@ class SubfoldersDataset(VisionDataset):
     
 class FolderDataset(VisionDataset):
     def __init__(self, root, filetype: str, transform=None, target_transform=None):
+        '''
+        Creates a dataset from a folder of images.
+        param root: The root directory of the dataset
+        param filetype: The filetype of the images
+        param transform: The transforms to apply to the images
+        param target_transform: The transforms to apply to the labels
+        '''
         super(self.__class__, self).__init__(root, transform=transform, target_transform=target_transform)
         self.root = root
         self.transform = transform

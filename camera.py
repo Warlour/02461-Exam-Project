@@ -11,6 +11,11 @@ import random
 
 class EmotionCamera:
     def __init__(self, model, saved_model_path: str, emotion_labels: list) -> None:
+        '''
+        param: model: The model class to use
+        param: saved_model_path: The path to the saved model
+        param: emotion_labels: The labels of the emotions used to train model
+        '''
         self.saved_model_path = saved_model_path
         self.emotion_labels: list = emotion_labels
         self.model = model(num_classes=len(emotion_labels))
@@ -64,6 +69,9 @@ class EmotionCamera:
 
 
     def start(self) -> None:
+        '''
+        Starts the camera and predicts the emotion of the user
+        '''
         emotion_text = ""
 
         capture = cv2.VideoCapture(0)
@@ -127,7 +135,7 @@ class EmotionCamera:
 if __name__ == "__main__":
     app = EmotionCamera(
         model=EmotionRecognizerV5,
-        saved_model_path="models/Optimering/2024-1-10 21_52_2.pt",
+        saved_model_path="C:/Users/mathi/OneDrive - Danmarks Tekniske Universitet/Skole/02461 Introduction to Intelligent Systems Fall 23/Eksamen/Modeller og data (do not edit)/Optimering/2024-1-10 21_52_2.pt",
         emotion_labels=['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
     )
 
