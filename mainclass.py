@@ -41,6 +41,7 @@ class ModelHandler:
 
         '''MODEL'''
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        print("Using", self.device)
         self.model = model(self.classes).to(self.device)
 
         self.data = {

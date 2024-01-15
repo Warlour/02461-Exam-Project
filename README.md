@@ -2,24 +2,35 @@
 
 ## Virtual Environment
 
-I dette projekt gør vi brug af et virtuelt miljø med Python 3.11.7, for at sikre kompatibilitet mellem styresystemer. For at opsætte dette virtuelle miljø kan du med `Command Palette` i VSCode (CTRL+SHIFT+P) køre
-``Python: Create Environment`` og derefter vælge enten venv eller Conda (vi har brugt venv).
-Du kan installere alle nødvendige pakker med `py -m pip install -r requirements.txt`.
+In this project we use a virtual enviroment built with Python 3.11.7 to ensure compability between operating systems. To set up this environment you can either use Python or VSCode:
 
-Tjek installation med
+* Python: `py -m venv venv`
+* VSCode:
+  1. Open `Command Palette` with ctrl+shift+p
+  2. Select `Python: Create Environment` and use `venv`
 
-```python
+When the virtual environment is set up, use following code in terminal to ensure correct python path:
+
+```powershell
 py -c "import os, sys; print(os.path.dirname(sys.executable))"
+```
+
+If you're getting an error, try using `python` instead of `py`.
+
+When all this is done, use the following code in terminal to install package requirements.
+
+```powershell
+py -m pip install -r requirements.txt
 ```
 
 ## Cuda
 
-For at kunne udnytte GPU'en til træning af modellen skal du hente en cuda understøttet version af PyTorch. Dette kan gøres ved at gå ind på [PyTorch](https://pytorch.org/get-started/locally/) og vælge den rigtige version.
+To utilize the GPU for training the model you must install a CUDA Toolkit that is supported by your GPU, as well as a CUDA-supported version of [PyTorch](https://pytorch.org/get-started/locally/). If installed correctly, the initializer of ModelHandler should print out "cuda".
 
 ## Usage
 
-Brug `-h` argumentet for at få en liste over alle argumenter.
+Use the `-h` argument to get a list of all arguments.
 
 # Model files
 
-The .pt files are to be saved with the following format: `date time batchsize-learningrate-epochs-weightdecay-gamma-min_lr-momentum accuracy lossfunc-optifunc-scheduler note.pt`
+Model files (.pt) are saved in our [OneDrive](https://dtudk-my.sharepoint.com/:f:/g/personal/s234843_dtu_dk/EkReAW9hH-xErYLYcxcNkbcBD6G0a7i_TMyv7vxg9BtvWQ?e=cquPLM "Requires DTU email to access") due to storage limit on GitHub.
