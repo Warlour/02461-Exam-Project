@@ -72,9 +72,7 @@ class EmotionCamera:
         '''
         Starts the camera and predicts the emotion of the user
         '''
-        emotion_text = ""
-
-        capture = cv2.VideoCapture(0)
+        capture = cv2.VideoCapture("path/to/video.mp4")
         image_counter = 0
         preprocessed_images = []
 
@@ -105,7 +103,7 @@ class EmotionCamera:
                     print(f"Guessed emotion: {guessed_emotion_text}")
 
                     image_counter += 1
-                    img_path = f"image_{emotion_text}{image_counter}.png"
+                    img_path = f"image_{guessed_emotion_text}{image_counter}.png"
                     preprocessed_images.append(img_path)
                     cv2.imwrite(os.path.join('preprocessed_images', img_path), normalized * 255)
 
@@ -133,11 +131,15 @@ class EmotionCamera:
         # print(accuracy)
 
 if __name__ == "__main__":
+    dir = "C:/Users/mathi/OneDrive - Danmarks Tekniske Universitet/Skole/02461 Introduction to Intelligent Systems Fall 23/Eksamen/Modeller og data (do not edit)/Optimering"
     app = EmotionCamera(
-        model=EmotionRecognizerV5,
-        saved_model_path="C:/Users/mathi/OneDrive - Danmarks Tekniske Universitet/Skole/02461 Introduction to Intelligent Systems Fall 23/Eksamen/Modeller og data (do not edit)/Optimering/2024-1-10 21_52_2.pt",
+        model=EmotionRecognizerV6,
+        saved_model_path=os.path.join(dir, "2024-1-11 18_13_56.pt"),
         emotion_labels=['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
     )
 
     # app.bounding_box(cv2.imread('preprocessed_images/image_23.png'))
     app.start()
+
+# https://www.pexels.com/video/woman-in-white-dress-posing-with-her-hat-on-paddy-fields-5120463/
+# https://www.pexels.com/video/woman-in-tears-6381269/
