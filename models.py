@@ -420,3 +420,8 @@ class EmotionRecognizerV6(nn.Module):
         x = self.fc2(x)
 
         return x
+
+if __name__ == "__main__":
+    model = EmotionRecognizerV4(num_classes=7)
+    pytorch_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(pytorch_total_params)
