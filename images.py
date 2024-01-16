@@ -1,22 +1,9 @@
-
-
-
-
-
-
-
 import cv2, time, os
 import torch
 import numpy as np
 
-import torchvision.transforms as transforms
-from torchvision.utils import save_image
-
 from models import *
-from PIL import Image
-import random
 import re
-import math
 
 class EmotionCamera:
     def __init__(self, model, saved_model_path: str, emotion_labels: list) -> None:
@@ -33,6 +20,7 @@ class EmotionCamera:
         self.model.eval()
 
         self.accuracies = []
+        self.emotions_results = {"angry": [0, 0], "disgust": [0, 0], "fear": [0, 0], "happy": [0, 0], "neutral": [0, 0], "sad": [0, 0], "surprise": [0, 0]}
 
         os.makedirs('preprocessed_images', exist_ok=True)
 
@@ -78,7 +66,6 @@ class EmotionCamera:
         else:
             print("No face detected")
 
-
     def start(self) -> None:
         '''
         Starts the camera and predicts the emotion of the user
@@ -87,7 +74,7 @@ class EmotionCamera:
         image_files = os.listdir(image_folder)
         image_counter = 0
         preprocessed_images = []
-        # actual_emotions = {"angry": 0, "disgust": 0, "fear": 0, "happy": 0, "neutral": 0, "sad": 0, "surprise": 0}
+        
         correct = 0
         total = 0        
 
@@ -118,12 +105,14 @@ class EmotionCamera:
                 print(f"Guessed emotion: {guessed_emotion_text}", end=" = ")
 
                 if guessed_emotion_text.lower() == act_emotion:
-                    print("Correct")
+                    print("Correct", end="                                                                  \r")
                     correct += 1
+                    self.emotions_results[act_emotion][0] += 1
                 else:
-                    print("Wrong")
+                    print("Wrong", end="                                                                    \r")
                 
                 total += 1
+                self.emotions_results[act_emotion][1] += 1
 
                 image_counter += 1
                 img_path = f"image_{guessed_emotion_text}{image_counter}.png"
@@ -140,25 +129,26 @@ class EmotionCamera:
                 if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Emotion Recognizer', cv2.WND_PROP_VISIBLE) < 1:
                     break
             except cv2.error:
-                print("No face detected", end="\r")
+                print("No face detected", end="                                                        \r")
             
         cv2.destroyAllWindows()
 
-        print(f"{correct}/{total}: {100*(correct/total)}%")
+        print(f"{correct}/{total}: {round(100*(correct/total), 4)}%                                                        ")
         self.accuracies.append(correct/total)
 
 if __name__ == "__main__":
-    dir = "C:/Users/mathi/OneDrive - Danmarks Tekniske Universitet/Skole/02461 Introduction to Intelligent Systems Fall 23/Eksamen/Modeller og data (do not edit)/Optimering"
-    pt_path = "2024-1-11 15_14_19.pt"
+    pt_dir = "C:/Users/mathi/OneDrive - Danmarks Tekniske Universitet/Skole/02461 Introduction to Intelligent Systems Fall 23/Eksamen/Modeller og data (do not edit)/Optimering"
+    pt_path = "2024-1-11 17_47_4.pt"
     app = EmotionCamera(
-        model=EmotionRecognizerV4,
-        saved_model_path=os.path.join(dir, pt_path),
+        model=EmotionRecognizerV6,
+        saved_model_path=os.path.join(pt_dir, pt_path),
         emotion_labels=['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
     )
 
     iters = 30
-    for _ in range(iters):
+    for i in range(iters):
         app.start()
+        print(f"{i+1}/{iters}")
 
     avg_acc = round(sum(app.accuracies)/len(app.accuracies), 4)
     mean = np.mean(app.accuracies)
@@ -167,6 +157,14 @@ if __name__ == "__main__":
     confidence = 0.95
     margin_of_error = 1.96 * (std_dev / np.sqrt(len(app.accuracies)))
     conf_int = [round((mean - margin_of_error)*100, 4), round((mean + margin_of_error)*100, 4)]
+
+    emotions_results = ""
+    for idx, (key, value) in enumerate(app.emotions_results.items()):
+        if idx == len(app.emotions_results.keys())-1:
+            emotions_results += f"{key}: {value[0]}/{value[1]}"
+        else:
+            emotions_results += f"{key}: {value[0]}/{value[1]}, "
+
     
     with open("accuracies.txt", "a") as f:
-        f.write(f"{pt_path} | Avg. accuracy: {str(avg_acc)} | Confidence interval from {iters} iterations: {conf_int}\n")
+        f.write(f"{app.model.__class__.__name__} {pt_path} | Avg. accuracy: {str(avg_acc)} | Confidence interval from {iters} iterations: {conf_int} | {emotions_results}\n")

@@ -82,6 +82,8 @@ class EmotionCamera:
             try:
                 # Capture frame from the webcam
                 ret, frame = capture.read()
+                if not ret:
+                    break
                 box_frame = self.bounding_box(frame)
 
                 if time.time() - last_frame_time >= 2:
