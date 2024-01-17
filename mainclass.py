@@ -507,6 +507,14 @@ class ModelHandler:
             plt.savefig(os.path.join(save_path, self.customname+" train vs validation loss"+".png"))  # Save the plot as a PNG file
         
     def plot_confusionmatrix(self, save_plot: bool = True, display_plot: bool = False, save_path: str = "") -> None:
+        '''
+        Saves data to a confusion matrix plot
+        param save_plot: Whether to save plot
+        param display_plot: Whether to display plot
+        param save_path: Directory to save plot
+
+        Inspired by: https://www.geeksforgeeks.org/confusion-matrix-machine-learning/
+        '''
         if self.tested:
             cm = confusion_matrix(self.__all_labels, self.__all_preds)
             plt.figure(figsize=(10, 10))
@@ -515,7 +523,12 @@ class ModelHandler:
             plt.ylabel('Actual')
             plt.title('Confusion Matrix')
             if save_plot:
-                plt.savefig(os.path.join(save_path, self.customname+" Confusion matrix"+".png"))
+                i = 0
+                filename = "Confusion matrix.png"
+                while os.path.exists(os.path.join(save_path, filename)):
+                    i += 1
+                    filename = f"Confusion matrix_{i}.png"
+                plt.savefig(os.path.join(save_path, filename))
 
             if display_plot:
                 plt.show()
