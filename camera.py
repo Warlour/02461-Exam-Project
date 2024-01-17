@@ -1,13 +1,10 @@
 import cv2, time, os
 import torch
-import numpy as np
-
 import torchvision.transforms as transforms
-from torchvision.utils import save_image
-
 from models import *
 from PIL import Image
-import random
+
+import numpy as np
 
 class EmotionCamera:
     def __init__(self, model, saved_model_path: str, emotion_labels: list) -> None:
@@ -27,6 +24,12 @@ class EmotionCamera:
 
         # Load bounding box model
         self.net = cv2.dnn.readNetFromCaffe('Bounding box/deploy.prototxt', 'Bounding box/res10_300x300_ssd_iter_140000.caffemodel')
+
+        self.test_transforms = transforms.Compose([
+            transforms.Resize((48, 48)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5], std=[0.5])
+        ])
 
     def bounding_box(self, frame):
         resized_image = cv2.resize(frame, (300, 300))
@@ -67,16 +70,35 @@ class EmotionCamera:
         else:
             print("No face detected")
 
+    def _preprocess_frame(self, frame) -> torch.Tensor:
+        self.box_frame = self.bounding_box(frame)
+        # To grayscale
+        grayscale_frame = cv2.cvtColor(self.box_frame, cv2.COLOR_BGR2GRAY)
+        pil_image = Image.fromarray(grayscale_frame)
+
+        # Preprocess the frame
+        transformed_frame = self.test_transforms(pil_image)
+        frame_tensor = transformed_frame.unsqueeze(0) # Add extra dimensions for batch size
+        frame_tensor = frame_tensor.float()
+        return frame_tensor
+
+    def _save_image(self, preprocess_frame: torch.Tensor, img_path: str) -> None:
+        image = preprocess_frame.squeeze().cpu().numpy()
+        image = ((image + 1) / 2.0) * 255.0  # Denormalize the image
+        image = Image.fromarray(image.astype('uint8'))
+        image.save(os.path.join('preprocessed_images', img_path))
 
     def start(self) -> None:
         '''
-        Starts the camera and predicts the emotion of the user
+        Starts the processing of images and predicts the emotion
         '''
-        capture = cv2.VideoCapture("path/to/video.mp4")
+        capture = cv2.VideoCapture(0)
         image_counter = 0
         preprocessed_images = []
 
         last_frame_time = time.time()
+        self.latest_guess = ""
+        self.box_frame = None
 
         while True:
             try:
@@ -84,40 +106,40 @@ class EmotionCamera:
                 ret, frame = capture.read()
                 if not ret:
                     break
-                box_frame = self.bounding_box(frame)
+                
 
                 if time.time() - last_frame_time >= 2:
                     # Preprocess the frame
-                    grayscale = cv2.cvtColor(box_frame, cv2.COLOR_BGR2GRAY)
-                    resized = cv2.resize(grayscale, (48, 48))
-                    normalized = resized / 255.0
-                    frame_tensor = torch.from_numpy(normalized)
-                    frame_tensor = frame_tensor.unsqueeze(0).unsqueeze(0)  # Add extra dimensions for batch size and channels
-                    frame_tensor = frame_tensor.float()
+                    preprocess_frame = self._preprocess_frame(frame)
 
                     # Predict emotion
                     with torch.no_grad():
-                        predictions = self.model(frame_tensor)
+                        predictions = self.model(preprocess_frame)
                     
                     # Get predicted emotion on frame
                     guessed_emotion = torch.argmax(predictions).item()
                     guessed_emotion_text: str = self.emotion_labels[guessed_emotion]
-                    print(f"Guessed emotion: {guessed_emotion_text}")
+                    print(f"Guessed emotion: {guessed_emotion_text}                                                  ", end="\r")
+
+                    self.latest_guess = guessed_emotion_text
 
                     image_counter += 1
                     img_path = f"image_{guessed_emotion_text}{image_counter}.png"
                     preprocessed_images.append(img_path)
-                    cv2.imwrite(os.path.join('preprocessed_images', img_path), normalized * 255)
+                    self._save_image(preprocess_frame, img_path)
 
-                    if len(preprocessed_images) >= 100:
+                    if len(preprocessed_images) >= 50:
                         # Delete first index image
                         os.remove(os.path.join('preprocessed_images', preprocessed_images.pop(0)))
                         
                     # Update last frame time
                     last_frame_time = time.time()
 
+                # Display guessed emotion on the camera window
+                cv2.putText(frame, f'Emotion: {self.latest_guess}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 50, 50), 2, cv2.LINE_AA)
+
                 cv2.imshow('Emotion Recognizer', frame)
-                cv2.imshow('Bounding box', box_frame)
+                cv2.imshow('Bounding box', self.box_frame)
 
                 if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Emotion Recognizer', cv2.WND_PROP_VISIBLE) < 1:
                     break
@@ -127,21 +149,13 @@ class EmotionCamera:
         capture.release()
         cv2.destroyAllWindows()
 
-        # correct = sum([1 for i, j in zip(self.actual_emotions, self.guessed_emotions) if i == j])
-        # total = len(self.actual_emotions)
-        # accuracy = correct / total
-        # print(accuracy)
-
 if __name__ == "__main__":
-    dir = "C:/Users/mathi/OneDrive - Danmarks Tekniske Universitet/Skole/02461 Introduction to Intelligent Systems Fall 23/Eksamen/Modeller og data (do not edit)/Optimering"
+    pt_dir = "C:/Users/mathi/OneDrive - Danmarks Tekniske Universitet/Skole/02461 Introduction to Intelligent Systems Fall 23/Eksamen/Modeller og data (do not edit)/Optimering"
+    pt_path = "2024-1-11 17_47_4.pt"
     app = EmotionCamera(
         model=EmotionRecognizerV6,
-        saved_model_path=os.path.join(dir, "2024-1-11 18_13_56.pt"),
+        saved_model_path=os.path.join(pt_dir, pt_path),
         emotion_labels=['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
     )
 
-    # app.bounding_box(cv2.imread('preprocessed_images/image_23.png'))
     app.start()
-
-# https://www.pexels.com/video/woman-in-white-dress-posing-with-her-hat-on-paddy-fields-5120463/
-# https://www.pexels.com/video/woman-in-tears-6381269/
