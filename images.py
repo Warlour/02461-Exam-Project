@@ -1,9 +1,18 @@
-import cv2, time, os
+import cv2, os
 import torch
+from torchvision import transforms
+from models import *
+from PIL import Image
+
 import numpy as np
 
-from models import *
+
 import re
+
+# Plot
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
 
 class EmotionCamera:
     def __init__(self, model, saved_model_path: str, emotion_labels: list) -> None:
@@ -26,6 +35,12 @@ class EmotionCamera:
 
         # Load bounding box model
         self.net = cv2.dnn.readNetFromCaffe('Bounding box/deploy.prototxt', 'Bounding box/res10_300x300_ssd_iter_140000.caffemodel')
+
+        self.test_transforms = transforms.Compose([
+            transforms.Resize((48, 48)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5], std=[0.5])
+        ])
 
     def bounding_box(self, frame):
         resized_image = cv2.resize(frame, (300, 300))
@@ -76,23 +91,27 @@ class EmotionCamera:
         preprocessed_images = []
         
         correct = 0
-        total = 0        
+        total = 0
+
+        self.__all_preds = []
+        self.__all_labels = []   
 
         for image_file in image_files:
             try:
-                # Read image from the folder
-                frame = cv2.imread(os.path.join(image_folder, image_file))
-                box_frame = self.bounding_box(frame)
-
+                # Actual emotion
                 act_emotion = re.sub(r'\d+\.jpg$', '', image_file)
                 print("Actual emotion:", act_emotion, end=" | ")
 
+                # Read image from the folder
+                frame = cv2.imread(os.path.join(image_folder, image_file))
+                box_frame = self.bounding_box(frame)
+                # To grayscale
+                grayscale_frame = cv2.cvtColor(box_frame, cv2.COLOR_BGR2GRAY)
+                pil_image = Image.fromarray(grayscale_frame)
+
                 # Preprocess the frame
-                grayscale = cv2.cvtColor(box_frame, cv2.COLOR_BGR2GRAY)
-                resized = cv2.resize(grayscale, (48, 48))
-                normalized = resized / 255.0
-                frame_tensor = torch.from_numpy(normalized)
-                frame_tensor = frame_tensor.unsqueeze(0).unsqueeze(0)  # Add extra dimensions for batch size and channels
+                transformed_frame = self.test_transforms(pil_image)
+                frame_tensor = transformed_frame.unsqueeze(0) # Add extra dimensions for batch size
                 frame_tensor = frame_tensor.float()
 
                 # Predict emotion
@@ -114,10 +133,19 @@ class EmotionCamera:
                 total += 1
                 self.emotions_results[act_emotion][1] += 1
 
+                # Save results to list
+                self.__all_labels.append(act_emotion)
+                self.__all_preds.append(guessed_emotion_text.lower())
+
+                # Save preprocessed image to file
                 image_counter += 1
                 img_path = f"image_{guessed_emotion_text}{image_counter}.png"
                 preprocessed_images.append(img_path)
-                cv2.imwrite(os.path.join('preprocessed_images', img_path), normalized * 255)
+                image = frame_tensor.squeeze().cpu().numpy()
+                image = ((image + 1) / 2.0) * 255.0  # Denormalize the image
+                image = Image.fromarray(image.astype('uint8'))
+                image.save(os.path.join('preprocessed_images', img_path))
+                # cv2.imwrite(os.path.join('preprocessed_images', img_path), normalized * 255)
 
                 if len(preprocessed_images) >= 100:
                     # Delete first index image
@@ -134,37 +162,51 @@ class EmotionCamera:
         cv2.destroyAllWindows()
 
         print(f"{correct}/{total}: {round(100*(correct/total), 4)}%                                                        ")
-        self.accuracies.append(correct/total)
+        self.accuracy = correct/total
+
+    def plot_confusionmatrix(self, save_path: str = "") -> None:
+        '''
+        Plots the confusion matrix of the model
+        param save_path: Directory to save plot
+
+        Inspired by: https://www.geeksforgeeks.org/confusion-matrix-machine-learning/
+        '''
+        cm = confusion_matrix(self.__all_labels, self.__all_preds)
+        plt.figure(figsize=(10, 10))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+                    xticklabels=self.emotion_labels, yticklabels=self.emotion_labels)
+        plt.xlabel('Predicted')
+        plt.ylabel('Actual')
+        plt.title('Confusion Matrix')
+        i = 0
+        filename = "Confusion matrix.png"
+        while os.path.exists(os.path.join(save_path, filename)):
+            i += 1
+            filename = f"Confusion matrix_{i}.png"
+        plt.savefig(os.path.join(save_path, filename))
+        plt.show()
 
 if __name__ == "__main__":
     pt_dir = "C:/Users/mathi/OneDrive - Danmarks Tekniske Universitet/Skole/02461 Introduction to Intelligent Systems Fall 23/Eksamen/Modeller og data (do not edit)/Optimering"
-    pt_path = "2024-1-11 17_47_4.pt"
-    app = EmotionCamera(
-        model=EmotionRecognizerV6,
-        saved_model_path=os.path.join(pt_dir, pt_path),
-        emotion_labels=['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
-    )
+    pt_path = "2024-1-11 17_47_4.pt" # 2024-1-11 17_47_4
+    for _ in range(1):
+        app = EmotionCamera(
+            model=EmotionRecognizerV6,
+            saved_model_path=os.path.join(pt_dir, pt_path),
+            emotion_labels=['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
+        )
 
-    iters = 30
-    for i in range(iters):
         app.start()
-        print(f"{i+1}/{iters}")
 
-    avg_acc = round(sum(app.accuracies)/len(app.accuracies), 4)
-    mean = np.mean(app.accuracies)
-    std_dev = np.std(app.accuracies)
+        emotions_results = ""
+        for idx, (key, value) in enumerate(app.emotions_results.items()):
+            if idx == len(app.emotions_results.keys())-1:
+                emotions_results += f"{key}: {value[0]}/{value[1]}"
+            else:
+                emotions_results += f"{key}: {value[0]}/{value[1]}, "
 
-    confidence = 0.95
-    margin_of_error = 1.96 * (std_dev / np.sqrt(len(app.accuracies)))
-    conf_int = [round((mean - margin_of_error)*100, 4), round((mean + margin_of_error)*100, 4)]
+        
+        with open("accuracies.txt", "a") as f:
+            f.write(f"{app.model.__class__.__name__} {pt_path} | Accuracy {app.accuracy} | {emotions_results}\n")
 
-    emotions_results = ""
-    for idx, (key, value) in enumerate(app.emotions_results.items()):
-        if idx == len(app.emotions_results.keys())-1:
-            emotions_results += f"{key}: {value[0]}/{value[1]}"
-        else:
-            emotions_results += f"{key}: {value[0]}/{value[1]}, "
-
-    
-    with open("accuracies.txt", "a") as f:
-        f.write(f"{app.model.__class__.__name__} {pt_path} | Avg. accuracy: {str(avg_acc)} | Confidence interval from {iters} iterations: {conf_int} | {emotions_results}\n")
+        app.plot_confusionmatrix()
