@@ -5,8 +5,6 @@ from models import *
 from PIL import Image
 
 import numpy as np
-
-
 import re
 
 # Plot
@@ -14,7 +12,7 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
 import seaborn as sns
 
-class EmotionCamera:
+class EmotionImages:
     def __init__(self, model, saved_model_path: str, emotion_labels: list) -> None:
         '''
         param: model: The model class to use
@@ -81,6 +79,24 @@ class EmotionCamera:
         else:
             print("No face detected")
 
+    def _preprocess_frame(self, frame) -> torch.Tensor:
+        self.box_frame = self.bounding_box(frame)
+        # To grayscale
+        grayscale_frame = cv2.cvtColor(self.box_frame, cv2.COLOR_BGR2GRAY)
+        pil_image = Image.fromarray(grayscale_frame)
+
+        # Preprocess the frame
+        transformed_frame = self.test_transforms(pil_image)
+        frame_tensor = transformed_frame.unsqueeze(0) # Add extra dimensions for batch size
+        frame_tensor = frame_tensor.float()
+        return frame_tensor
+
+    def _save_image(self, preprocess_frame: torch.Tensor, img_path: str) -> None:
+        image = preprocess_frame.squeeze().cpu().numpy()
+        image = ((image + 1) / 2.0) * 255.0  # Denormalize the image
+        image = Image.fromarray(image.astype('uint8'))
+        image.save(os.path.join('preprocessed_images', img_path))
+
     def start(self) -> None:
         '''
         Starts the camera and predicts the emotion of the user
@@ -89,6 +105,7 @@ class EmotionCamera:
         image_files = os.listdir(image_folder)
         image_counter = 0
         preprocessed_images = []
+        self.box_frame = None
         
         correct = 0
         total = 0
@@ -104,19 +121,13 @@ class EmotionCamera:
 
                 # Read image from the folder
                 frame = cv2.imread(os.path.join(image_folder, image_file))
-                box_frame = self.bounding_box(frame)
-                # To grayscale
-                grayscale_frame = cv2.cvtColor(box_frame, cv2.COLOR_BGR2GRAY)
-                pil_image = Image.fromarray(grayscale_frame)
 
                 # Preprocess the frame
-                transformed_frame = self.test_transforms(pil_image)
-                frame_tensor = transformed_frame.unsqueeze(0) # Add extra dimensions for batch size
-                frame_tensor = frame_tensor.float()
+                preprocess_frame = self._preprocess_frame(frame)
 
                 # Predict emotion
                 with torch.no_grad():
-                    predictions = self.model(frame_tensor)
+                    predictions = self.model(preprocess_frame)
                 
                 # Get predicted emotion on frame
                 guessed_emotion = torch.argmax(predictions).item()
@@ -141,18 +152,15 @@ class EmotionCamera:
                 image_counter += 1
                 img_path = f"image_{guessed_emotion_text}{image_counter}.png"
                 preprocessed_images.append(img_path)
-                image = frame_tensor.squeeze().cpu().numpy()
-                image = ((image + 1) / 2.0) * 255.0  # Denormalize the image
-                image = Image.fromarray(image.astype('uint8'))
-                image.save(os.path.join('preprocessed_images', img_path))
+                self._save_image(preprocess_frame, img_path)
                 # cv2.imwrite(os.path.join('preprocessed_images', img_path), normalized * 255)
 
-                if len(preprocessed_images) >= 100:
+                if len(preprocessed_images) >= 50:
                     # Delete first index image
                     os.remove(os.path.join('preprocessed_images', preprocessed_images.pop(0)))
 
                 cv2.imshow('Emotion Recognizer', frame)
-                cv2.imshow('Bounding box', box_frame)
+                cv2.imshow('Bounding box', self.box_frame)
 
                 if cv2.waitKey(1) & 0xFF == ord('q') or cv2.getWindowProperty('Emotion Recognizer', cv2.WND_PROP_VISIBLE) < 1:
                     break
@@ -190,7 +198,7 @@ if __name__ == "__main__":
     pt_dir = "C:/Users/mathi/OneDrive - Danmarks Tekniske Universitet/Skole/02461 Introduction to Intelligent Systems Fall 23/Eksamen/Modeller og data (do not edit)/Optimering"
     pt_path = "2024-1-11 17_47_4.pt" # 2024-1-11 17_47_4
     for _ in range(1):
-        app = EmotionCamera(
+        app = EmotionImages(
             model=EmotionRecognizerV6,
             saved_model_path=os.path.join(pt_dir, pt_path),
             emotion_labels=['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
