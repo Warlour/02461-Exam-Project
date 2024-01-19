@@ -192,6 +192,7 @@ class ModelHandler:
                 start = perf_counter()
                 steptimes = []
 
+                # Not the same custom scheduler as in report, that one is outdated
                 if self.scheduler == "AliLR":
                     if self.__get_lr(self.optimizer)*self.gamma > self.min_lr:
                         self.__set_lr(self.optimizer, self.__get_lr(self.optimizer)*self.gamma)
@@ -248,9 +249,7 @@ class ModelHandler:
                 
                 validation_loss_avg = validation_loss / len(self.__validation_loader)  # Record the validation loss
                 self.__validation_losses.append(validation_loss_avg)
-                # IF ReduceLROnPlateau
-                if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
-                    self.scheduler.step(validation_loss_avg)
+
                 # IF ReduceLROnPlateau
                 if self.scheduler.__class__.__name__ == "ReduceLROnPlateau":
                     self.scheduler.step(validation_loss_avg)
